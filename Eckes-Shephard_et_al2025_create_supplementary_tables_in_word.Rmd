@@ -43,7 +43,7 @@ only used to create table for supplementary materials in word-document format. T
     
 \tiny 
     
-```{r setup, include=TRUE}
+```{r Table_S11_30_year_summary_stats, include=TRUE}
 
 load("../model_outputs/all_models_30year_summary_stats.RData")
 
@@ -51,7 +51,7 @@ options(knitr.kable.NA = "-")
 knitr::kable(FULL,caption = "Forest Carbon and dynamics variables summarised across the first 30 years of regrowth and equilibrium. Aboveground woody carbon (AGcwood, KgC m2) after 30 years of disturbance recovery, and at equilibrium, by model and site. WBgrowth fluxes and cmort rates (%) minimum and maximum rates within the first 30 years, and the minimum and maximum across models across these years. No model output marked by -", digits=2, cex=0.3)
 ```
 
-```{r table}
+```{r Table_S5_equilibrium_period,eval=TRUE}
 #Upper and lower simulation year 
 # similar content to chunk select_equilibrium_period in main manuscript
 
@@ -93,8 +93,8 @@ knitr::kable(eq_values_table[order(eq_values_table$model),], caption="Upper and 
 ```
 
 
-Deviations: ORCHIDEE: AGcwood
-```{r Supplementary_Materials_benchmarking_self_thinning,eval=TRUE}
+
+```{r Table_S8_Supplementary_Materials_benchmarking_self_thinning,eval=TRUE}
 
 # Self-thinning relationships should ideally be performed on Aboveground woody carbon (AGcwood), as is done in the observations, but we only have AGcwood output as total or per PFT.
 # we could apply a factor on cwood_size, but a universal conversion factor on all models may be unfair, especially here, where allometry might have mattered in creating self-thinning behaviour in the model. So it is cleaner to stay with cwood_size, also for the mean individual biomass calculation that goes into the self-thinning slope creation.
@@ -106,6 +106,7 @@ Deviations: ORCHIDEE: AGcwood
 
 #now, to the same but plot all models in one plot:
 #pdf(file=paste0(Figs_dir,simdate,"/Supplementary_materials_4_Benchmark_self_thinning_all_models_point_selection_methods_3plots.pdf"))
+
 
 par(mfrow=c(4,3))
 xlim_set = c(0,4)
