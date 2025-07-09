@@ -125,9 +125,9 @@ knitr::kable(eq_values_table[order(eq_values_table$model),], caption="Upper and 
 # Cbudget closure checks
 
 ```{r budget_closed_used_in_cbudget_instructions}
-#STABLE -NOT CLEANED
 
-png(file=paste0(Figs_dir,simdate,"/S1_woody_carbon_budget.png"),width=215,height=340,units="mm",res =300)
+
+png(file=paste0(Figs_dir,"/FigS1_woody_carbon_budget.png"),width=215,height=340,units="mm",res =300)
 
 par(mfrow=c(9,3),mar=c(1.5,0,2.2,0),oma=c(2.3,3.3,0.7,0.2))
 #par(mfrow=c(1,3),mar=c(1.5,0,2.2,0),oma=c(2.3,3.3,0.7,0.2))
@@ -769,7 +769,7 @@ stand_structure_obs <- read.csv(paste0(obs.path,"benchmark_stand_structure.csv")
 stand_structure_obs[which(stand_structure_obs$site =="FI"),]$site <- "FIN"
 #stand_structure_benchmarks(model_name="LPJ-GUESS",site_in = site, takelog =TRUE, var_in="nstem_size", stand_structure_obs)
 
-pdf(file=paste0(Figs_dir,simdate,"/NotesS3_Benchmark_stand_structure_per_model.pdf"))
+pdf(file=paste0(Figs_dir,"/NotesS3_Benchmark_stand_structure_per_model.pdf"))
 
 for(model_name in models_avail){
   print(model_name)
@@ -914,7 +914,7 @@ Deviations: ORCHIDEE: AGcwood
 # remember: the observations have been filtered for trees >10 dbh, and stand age > 10.
 
 #now, to the same but plot all models in one plot:
-pdf(file=paste0(Figs_dir,simdate,"/FigS11_Supplementary_materials_Benchmark_self_thinning_all_models_point_selection_methods_3plots.pdf"))
+pdf(file=paste0(Figs_dir,"/FigS11_Supplementary_materials_Benchmark_self_thinning_all_models_point_selection_methods_3plots.pdf"))
 
 par(mfrow=c(4,3))
 xlim_set = c(0,4)
@@ -2220,7 +2220,7 @@ colnames(nstem_size_estab_upto10) <- c(models_avail,"min","max","sites")
 nstem_size_estab_upto10$sites <- sites
 nstem_size_estab_10plus <- nstem_size_estab_upto10
 
-#pdf(file=paste0(Figs_dir,simdate,"/Notes_S2_prep_forest_phase_identification.pdf"),width=8,height=8)
+#pdf(file=paste0(Figs_dir,"/Notes_S2_prep_forest_phase_identification.pdf"),width=8,height=8)
 #models_sub <- models_avail[-2]
 for(model_name in models_avail){
 # cveg_total with Bgrowth and cmort.
@@ -2600,8 +2600,9 @@ dev.off()
 
 ```
 
-```{r growth_rate_kgCm2yr,eval=FALSE}
-#Not presented in publication.
+```{r growth_rate_kgCm2yr}
+#The figures created in this chunk are not presented in publication in this form.
+#the code must be executed for the below chunk, so that the data is plotted in Figure 2.
 
 #upper plot range:
 xmax <- 250
@@ -2983,7 +2984,7 @@ create_gobj <- function(model_out, y.lim = NULL,layers=NULL){
   return(p_out)
 }
 
-bitmap(file=paste0(Figs_dir,simdate,"/FigS14_growth_rates_and_succession.png"),width=80,height=120,units="mm",res =480,type="png16m")
+bitmap(file=paste0(Figs_dir,"/FigS14_growth_rates_and_succession.png"),width=80,height=120,units="mm",res =480,type="png16m")
 
 par(mfcol =c(1,2), oma=c(4.2,0,0.8,1.5),mar=c(0,3,0,1))
 
