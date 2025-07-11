@@ -1658,17 +1658,20 @@ eq_dyn_obs <- read.csv(paste0(obs.path,"/benchmark_eq_dynamics.csv"),head =TRUE)
 turnover_obs <- read.csv(paste0(obs.path,"/benchmark_turnover_times.csv"),head=TRUE) 
 WBgrowth_obs <- read.csv(paste0(obs.path,"/benchmark_WBgrowth.csv"),head=TRUE) 
 
-#par(mfcol=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+
+
+tiff(file=paste0(Figs_dir,simdate,"/Figure_5.tiff"),width=160,height=200,units="mm",res =1300)
+
+#tiff("boxplot_highres.tiff", width = 180, height = 240, units = "mm", res = 600)
+
+
+
 par(mfcol=c(3,2),mar=c(0,3,0,0),oma=c(10,1,1,0))
 ####################################################################################
 
 
-########### Barro Colorado Island:
-
-
-#BCI - because there is no problem with leaves or with having to process Finland observations
 model_pch = 16
-#load observations:
+n_models = 9
 
 
 ######################## FIN
@@ -1684,51 +1687,60 @@ for(model_name in models_avail){
   else{
     run="P0"
   }
-
-    cmort_in   <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood_in   <- get_model_output(var="cwood",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood      <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
-    cmort      <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
-
-    # extract the equilibrium phase, and use those years for the boxplot
-    lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
-    upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
-
-    #calculate turnover time:
-    turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
-
-    collect_turnover_FIN[[model_name]] <- turnover_time
-
+  
+  cmort_in   <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood_in   <- get_model_output(var="cwood",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood      <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  cmort      <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  
+  # extract the equilibrium phase, and use those years for the boxplot
+  lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
+  upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
+  
+  #calculate turnover time:
+  turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
+  
+  collect_turnover_FIN[[model_name]] <- turnover_time
+  
 }
 
-# prepare grey shaded area:
-# Get lower and upper bounds for the specific site
-bp_stats <- boxplot(c(FIN_Turnover$turnover_time),plot= FALSE)
-lower <- bp_stats$stats[1] #lower whisker
-upper <- bp_stats$stats[5] #upper whisker
+boxplot_data <- collect_turnover_FIN
+# add observations:
+boxplot_data$Observations <- FIN_Turnover$turnover_time
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+# Set plot limits
+ymin <- 0
+ymax <- 460
+
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
+lower <- bp_stats$stats[1]
+upper <- bp_stats$stats[5]
+
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
-collect_turnover_FIN$Obsplaceholder <-  NA
-#prepare boxplot:
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=c(0,400), axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add to the boxplot the model output:
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
+
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_FIN[[model_name]],col = get_model_colour(model_name),ylim=c(0,400), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
 
-rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_turnover_FIN,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,na.omit(c(FIN_Turnover$turnover_time)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+
+rm_dot <- c(3,4,5,8) # some models have large boxplots, so don't need dots for identification by colour
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
 
@@ -1739,11 +1751,13 @@ axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
 #NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
 
-
 #mtext(side=3,line=-1,adj=0.9,paste0(site))
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(abc(site)),adj=0.02,side=3,line=-1.4)
+# ylim = c(ymin, ymax))
+##########
+
 
 ########################BIAlovieza
 site="BIA"
@@ -1767,61 +1781,72 @@ for(model_name in models_avail){
   }else{
     cwood_var="cwood"
   }
-    cmort_in    <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood_in   <- get_model_output(var=cwood_var,site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood    <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
-    cmort    <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
-
-     # extract the equilibrium phase, and use those years for the boxplot
-    lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
-    upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
-
-    turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
-
-    collect_turnover_BIA[[model_name]] <- turnover_time
-
+  cmort_in    <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood_in   <- get_model_output(var=cwood_var,site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood    <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  cmort    <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  
+  # extract the equilibrium phase, and use those years for the boxplot
+  lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
+  upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
+  
+  turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
+  
+  collect_turnover_BIA[[model_name]] <- turnover_time
+  
 }
 
+boxplot_data <- collect_turnover_BIA
+# add observations:
+boxplot_data$Observations <- BIA_Turnover$turnover_time
 
-#boxplot:
-#prepare grey shaded area:
-# Get lower and upper bounds for the specific site
-bp_stats <- boxplot(c(BIA_Turnover$turnover_time_yr),plot= FALSE)
-lower <- bp_stats$stats[1] #lower whisker
-upper <- bp_stats$stats[5] #upper whisker
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
+# Set plot limits
+ymin <- 0
+ymax <- 150
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
+lower <- bp_stats$stats[1]
+upper <- bp_stats$stats[5]
+
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
-collect_turnover_BIA$Obsplaceholder <-  NA
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
 
-#prepare boxplot:
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=c(0,160), axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add to the boxplot the model output:
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_BIA[[model_name]],col = get_model_colour(model_name),ylim=c(0,160), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
+
 rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_turnover_BIA,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,na.omit(c(BIA_Turnover$turnover_time_yr)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
-
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
-mtext(paste0(abc(site)),adj=0.01,side=3,line=-1.4)
-########################
+#NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
+
+#mtext(side=3,line=-1,adj=0.9,paste0(site))
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+mtext(paste0(abc(site)),adj=0.02,side=3,line=-1.4)
+# ylim = c(ymin, ymax))
+##########
 
 
 ######################## BCI
@@ -1830,8 +1855,6 @@ BCI_Turnover <- turnover_obs[grepl("^BCI", turnover_obs$site), ]
 names(BCI_Turnover) <- c("site","year","biomass_alive","mort_flux","turnover_time","mortality_rate")
 var  = "cmort"
 run  = "P0" # note: differs for LPJ-GUESS and CABLE-POP
-
-
 
 
 #the equilibrium periods between models are differently long, I collect them in a list of vectors:
@@ -1844,58 +1867,67 @@ for(model_name in models_avail){
   else{
     run="P0"
   }
-    cmort_in    <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood_in   <- get_model_output(var="cwood",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
-    cwood    <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
-    cmort    <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
-
-    # extract the equilibrium phase, and use those years for the boxplot
-    lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
-    upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
-
-    turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
-
-    # collect turnover values, used in boxplot
-    collect_turnover_BCI[[model_name]] <- turnover_time
+  cmort_in    <- get_model_output(var="cmort",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood_in   <- get_model_output(var="cwood",site=site,run=run,model_name=model_name, co2_levels = "412ppm")
+  cwood    <- omit_equilibrium_phase(cwood_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  cmort    <- omit_equilibrium_phase(cmort_in,model_name = model_name,site=site,selection_by_year = TRUE)
+  
+  # extract the equilibrium phase, and use those years for the boxplot
+  lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30
+  upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30
+  
+  turnover_time <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
+  
+  # collect turnover values, used in boxplot
+  collect_turnover_BCI[[model_name]] <- turnover_time
 }
 
 #prepare boxplot
-#prepare grey shaded area:
-# Get lower and upper observational bounds for the specific site
-bp_stats <- boxplot(BCI_Turnover$turnover_time,plot= FALSE)
-lower <- bp_stats$stats[1] #lower whisker
-upper <- bp_stats$stats[5] #upper whisker
+
+boxplot_data <- collect_turnover_BCI
+# add observations
+boxplot_data$Observations <- BCI_Turnover$turnover_time
 
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
+# Set plot limits
+ymin <- 0
+ymax <- 150
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
+lower <- bp_stats$stats[1]
+upper <- bp_stats$stats[5]
+
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
-collect_turnover_BCI$Obsplaceholder <-  NA
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
 
-#prepare boxplot:
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add to the boxplot the model output:
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_BCI[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
 
-#border=get_model_colour(models_avail)
-rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_turnover_BCI,median,na.rm=TRUE) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,c(BCI_Turnover$turnover_time),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+rm_dot <- c(4,8) # some models have large boxplots, so don't need dots for identification by colour
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
 
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
+axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
-#mtext(side=3,line=-1,adj=0.9,paste0(site))
+#NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
@@ -1907,14 +1939,13 @@ mtext(paste0(abc(site)),adj=0.01,side=3,line=-1.4)
 ########################################################################
 #Final plot aesthetics for first column:
 
- modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
-               ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
-   axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
+modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
+             ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
+axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
 
 mtext(side=2,"turnover time (years)",line=-1, outer =TRUE)
 
 
-########################################################################
 
 
 ########################################################################
@@ -1936,45 +1967,58 @@ for(model_name in models_avail){
   collect_boxplot_growth_FIN[[model_name]] <- benchmark_WBgrowth_flux(model_name=model_name,site=site,eq_values_in = eq_values)
 }
 
-#boxplot:
-#prepare grey shaded area:
-# Get lower and upper bounds for the specific site
-bp_stats <- boxplot(FIN$WBgrowth_kgC_m2_yr,plot= FALSE)
-lower <- bp_stats$stats[1] #lower whisker
-upper <- bp_stats$stats[5] #upper whisker
+#prepare boxplot
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
+boxplot_data <- collect_boxplot_growth_FIN
+# add observations
+boxplot_data$Observations <- FIN$WBgrowth_kgC_m2_yr
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+
+# Set plot limits
+ymin <- 0
+ymax <- 1.2
+
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
+lower <- bp_stats$stats[1]
+upper <- bp_stats$stats[5]
+
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
-collect_boxplot_growth_FIN$Obsplaceholder <-  NA
-#prepare boxplot:
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=ylim_wbgrowth, axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add model output again, to have observational range shade in the background:
-#add to the boxplot the model output:
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
+
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_boxplot_growth_FIN[[model_name]],col = get_model_colour(model_name),ylim=c(0,100), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
 
-rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_boxplot_growth_FIN,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,na.omit(c(FIN$WBgrowth_kgC_m2_yr)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+rm_dot <- c(4,8) # some models have large boxplots, so don't need dots for identification by colour
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
-text(x = 10, y = upper + 0.1 * upper, labels = paste("n = ", bp_stats$n[1]), cex = 0.8)
-
+text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
+#NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
+axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
+
+
 
 #BIAlovieza
 #################
@@ -1990,47 +2034,56 @@ for(model_name in models_avail){
   collect_boxplot_growth_BIA[[model_name]] <- benchmark_WBgrowth_flux(model_name=model_name,site=site,eq_values_in = eq_values)
 }
 
-#boxplot:
-#prepare grey shaded area:
-# Get lower and upper bounds for the specific site
-bp_stats <- boxplot(BIA$WBgrowth_kgC_m2_yr,plot= FALSE)
-lower <- bp_stats$stats[1] #lower whisker
-upper <- bp_stats$stats[5] #upper whisker
+#prepare boxplot
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
+boxplot_data <- collect_boxplot_growth_BIA
+# add observations
+boxplot_data$Observations <- BIA$WBgrowth_kgC_m2_yr
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+
+# Set plot limits
+ymin <- 0
+ymax <- 1.2
+
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
+lower <- bp_stats$stats[1]
+upper <- bp_stats$stats[5]
+
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
 
-collect_boxplot_growth_BIA$Obsplaceholder <-  NA
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=ylim_wbgrowth, axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add model output again, to have observational range shade in the background:
-#add to the boxplot the model output:
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_boxplot_growth_BIA[[model_name]],col = get_model_colour(model_name),ylim=c(0,100), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
-rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_boxplot_growth_BIA,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,na.omit(c(BIA$WBgrowth_kgC_m2_yr)), axes=FALSE,add = TRUE,col="gray34") #observations
-mtext(side=2,"eq. growth flux (kgC m-2 yr-1)",line=1.6)
-boxplot(at=10,na.omit(c(BIA$WBgrowth_kgC_m2_yr)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+
+rm_dot <- c(4,8) # some models have large boxplots, so don't need dots for identification by colour
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
-
-
+mtext(side=2,expression("eq. WBgrowth flux (kgCm"^-2~"yr"^-1~")"),line=1)
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
+#NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
+axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
-
 
 
 ##########BCI
@@ -2045,37 +2098,60 @@ for(model_name in models_avail){
   collect_boxplot_growth_BCI[[model_name]] <- benchmark_WBgrowth_flux(model_name=model_name,site=site,eq_values_in = eq_values)
 }
 
-#boxplot:
-#prepare grey shaded area:
+#prepare boxplot
+
+boxplot_data <- collect_boxplot_growth_BCI
+# add observations
+boxplot_data$Observations <- BCI$WBgrowth_kgC_m2_yr
+
+
+# Set plot limits
+ymin <- 0
+ymax <- 1.2
+
+# Set up empty plot area
+plot.new()
+plot.window(xlim = c(0.5, n_models + 1.5), ylim = c(ymin, ymax))
+
+# Draw grey polygon first (observational range)
+bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
 # Get lower and upper bounds for the specific site
+#NOTE: deviation from above:
 lower <- min(BCI$WBgrowth_kgC_m2_yr,na.rm = TRUE)
 upper <- max(BCI$WBgrowth_kgC_m2_yr,na.rm = TRUE)
 
-# Define x coordinates for the polygon (spanning across the models)
-x_coords <- c(0.5, length(models_avail) + 1.5, length(models_avail) + 1.5, 0.5)
 
-# Define y coordinates for the polygon (from lower to upper bounds)
+x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
 
+polygon(x_coords, y_coords,
+        col = adjustcolor("grey", alpha.f = 0.2),
+        border = NA)
 
-collect_boxplot_growth_BCI$Obsplaceholder <-  NA
-boxplot(at=1:10,matrix(ncol=10,NA),col = get_model_colour(models_avail),ylim=ylim_wbgrowth, axes=FALSE, outcol = get_model_colour(models_avail) )
-#add observational range:
-polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-#add model output again, to have observational range shade in the background:
-#add to the boxplot the model output:
+#Add the boxplots on top 
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_boxplot_growth_BCI[[model_name]],col = get_model_colour(model_name),ylim=c(0,100), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
-     i=i+1 # next model position
+  boxplot(at=i,boxplot_data[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+  i=i+1 # next model position
 }
 
-rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
-boxplot_md <- sapply(collect_boxplot_growth_BCI,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
-points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,na.omit(c(BCI$WBgrowth_kgC_m2_yr)), axes=FALSE,add = TRUE,col="gray34") #observations
+rm_dot <- c(4,8) # some models have large boxplots, so don't need dots for identification by colour
+boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
+points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
+boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
+
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
+axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+box()
+#NB:plotting the "raw" output of ORCHIDEE is probably not fair? should I plot the mean as a line?
+axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
+axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
+mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
+
 
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
@@ -2085,13 +2161,9 @@ box()
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
 
 
-
-
-
-
- modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
-               ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
-   axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=1.5)
+modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
+             ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
+axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=1.5)
 
 par(fig = c(0, 1, 0, 1), oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0), new = TRUE)
 plot(0, 0, type = "n", bty = "n", xaxt = "n", yaxt = "n")
@@ -2108,13 +2180,14 @@ legend(legend = c("BiomeES","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS
                get_model_colour("SEIB-DGVM"),
                get_model_colour("ORCHIDEE"),1),
        "bottomright",ncol=6,box.lwd = 0,inset = c(0,
-    0),cex=1)
+                                                  0),cex=1)
 
 mtext(outer =TRUE, "FIN", side=3, adj=0.01, line=-4)
-mtext(outer =TRUE, "BIA", side=3, adj=0.01, line=-32)
-mtext(outer =TRUE, "BCI", side=3, adj=0.01, line=-65)
+mtext(outer =TRUE, "BIA", side=3, adj=0.01, line=-16)
+mtext(outer =TRUE, "BCI", side=3, adj=0.01, line=-34)
 
 dev.off()
+
 
 
 ```
