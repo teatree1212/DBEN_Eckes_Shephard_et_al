@@ -7,13 +7,10 @@ output:
     df_print: paged
 ---
 
-#THIS ONE
-
-### Setup instructions
+# Setup instructions
 
 1) download the model outputs and benchmarking data from:
-
-e.g. zenodo?
+Zenodo
 
 2) install DGVMTools from:
 https://github.com/MagicForrest/DGVMTools
@@ -23,6 +20,7 @@ library(devtools)
 #install_github("MagicForrest/DGVMTools")
 library("DGVMTools")
 library(ggpubr)
+library(plotrix)
 ```
 
 ```{r source_DBEN_helper_functions_other_setup}
@@ -35,24 +33,19 @@ Figs_dir <- paste0("../Figs/")
 #create new Figures directory, if it does not yet exist:
 ifelse(!dir.exists(file.path("../Figs")), dir.create(file.path("../Figs")), FALSE)
 
-source(paste0("Format-DBEN_Eckes-Shephard_et_al2025.R"))
-source(paste0("DBEN_helper_functions.R"))
+source(here::here("Format-DBEN_Eckes-Shephard_et_al2025.R"))
+source(here::here("DBEN_helper_functions.R"))
 
 obs.path <-paste0("../observations/2_processed/")
 
-simdate = "20250107"#
+simdate = "20250107"
 
 #create new date-output directory, if it does not yet exist:
 ifelse(!dir.exists(file.path("../Figs/", simdate)), dir.create(file.path("../Figs/", simdate)), FALSE)
 
-
 # sampling of random numbers for forcing data before running the models (see Notes S1 - simulation protocol):
 set.seed(143)
 1990+sample.int(30, 30)
-
-
-# related to plotting aesthetics
-library(plotrix)
 
 #note: always pass alpha on the 0-255 scale
 makeTransparent<-function(someColor, alpha=100){
@@ -74,7 +67,6 @@ def <- function(site){
 
   return(abc[idx])
 }
-
 
 ghi <- function(site){
   idx <- which(sites==site)
@@ -102,7 +94,6 @@ eq_values_BIA$lower  <- c(200, 300 ,  150, 320 ,  320  , 600 ,700 ,240 ,  500)
 eq_values_BIA$upper  <- c(420, 450 , 320, 450,  450,  900, 810, 450 , 530)
 eq_values_BIA$model  <- models_avail
 
-
 eq_values_BCI        <- data.frame(lower=rep(NA,9))
 eq_values_BCI$lower  <- c(150, 250,  150, 320 ,  320  , 600, 500 ,  100  , 500) #LSM_DVM_comp$BCI$lower[1:lgth] # LPJG: 420 CABLE-POP: 1
 eq_values_BCI$upper  <- c(420 ,450 , 320 ,450 , 450 , 900 ,810 , 450,  530) #LSM_DVM_comp$BCI$upper[1:lgth]# LPJG: 864 CABLE-POP: 30
@@ -111,7 +102,6 @@ eq_values_BCI$model  <- models_avail
 eq_values <- list(eq_values_FIN,eq_values_BIA,eq_values_BCI)
 names(eq_values) <- sites
 
-#####################
 #for manuscript:
 eq_values_FIN$site <- "FIN"
 eq_values_BIA$site <- "BIA"
@@ -121,11 +111,9 @@ eq_values_table <- rbind(eq_values_FIN,eq_values_BIA,eq_values_BCI)
 knitr::kable(eq_values_table[order(eq_values_table$model),], caption="Upper and lower simulation year that make up the period from which each model is considered in equilibrium. Some models were run for a longer timeperiod than the prescribed 450 years in order to achieve a mature forest in equilibrium state.")
 ```
 
-
 # Cbudget closure checks
 
 ```{r budget_closed_used_in_cbudget_instructions}
-
 
 png(file=paste0(Figs_dir,"/FigS1_woody_carbon_budget.png"),width=215,height=340,units="mm",res =300)
 
@@ -136,7 +124,6 @@ for(model_name in models_avail){
 
   run  = "P0"
   for(site in c("FIN","BIA","BCI")){
-
 
     #some mode-specific use of variables necessary (see table S)
     if(model_name == "ORCHIDEE"){
@@ -186,7 +173,6 @@ for(model_name in models_avail){
                                          run="P0",model_name=model_name,
                                          co2_levels = "412ppm")
 
-
       }
       #remove the first 30 years of equilibrium. here we focus on the regrowth phase:
       cwood <- omit_equilibrium_phase(DVM_cwood,model_name=model_name,site=site,selection_by_year=TRUE)
@@ -207,7 +193,6 @@ mtext(outer=TRUE,line=2,side=2,"cwood, KgC m-2")
 dev.off()
 
 ```
-
 
 > **Note:** This is a highlighted text box created using block quotes.
 > You can add as many lines as you want here.
@@ -244,13 +229,12 @@ dev.off()
 
 # Benchmarks - all models
 
-## regrowth and equilibrium dynamics
+## Regrowth and equilibrium dynamics
 
 ```{r Figure_1_regrowth_all_models_manuscript, eval=TRUE}
 
 png(filename = paste0(Figs_dir,simdate,"/Figure_1.png"),width=180,height=240,units = "mm",res=1000)
 #### regrowth curve + equilibrium biomass dynamics
-
 
 par(mfcol=c(3,1),mar=c(0,3,0,0),oma=c(0,0,0.1,0.15),cex=0.8)
 xlim = 300
@@ -259,16 +243,13 @@ var="AGcwood"
 run  = "P0"
 last_sim_year = 450
 
-#load benchmark obs:
+# load benchmark obs:
 regrowth_obs <- read.csv(paste0(obs.path,"benchmark_regrowth_curves.csv"),head =TRUE)
 eq_dyn_obs   <- read.csv(paste0(obs.path,"benchmark_eq_dynamics.csv"),head =TRUE)
 
-
-###############################################################
-# A timeseries plot on regrowing forest model output with chronosequence data.
+# a timeseries plot on regrowing forest model output with chronosequence data.
 
 for(site in sites){
-
 
   if(site=="FIN"){
     par(fig=c(0,0.75,0.70,1), oma=c(2,1,0.5,0.1), mar=c(0,2,0,0))
@@ -283,11 +264,8 @@ for(site in sites){
     ylim=30
   }
 
-
-
   #load and plot models:
  for(model_name in models_avail){
-
 
   #get model_output
   model_out <-  get_model_output(site=site, run= run,
@@ -320,7 +298,6 @@ for(site in sites){
            length = 0.01, angle = 90, code = 3,col = get_biome_colour(biome,black_only = TRUE),
            lwd = 1, lty=2 )
 
-
     #aesthetics:
     if(site == "BCI"){
      axis(2,  line = -0.6, lwd = 0, cex.axis = 0.9)
@@ -335,7 +312,6 @@ for(site in sites){
      axis(1, tck = 0.01 ,cex.axis = 0.8,labels = FALSE,tck=0.01)
   }
 
-
   mtext(paste0(abc(site)),adj=0.99,side=3,line=-1.1,cex = 0.8)
   mtext(paste(site),side=3,adj=-0.1,line=-2.2)
 
@@ -345,9 +321,7 @@ for(site in sites){
 
 }
 
-
-####################################################################################
-# Add a separate mature forest AGcwood boxplot:
+# add a separate mature forest AGcwood boxplot:
 
 for(site in sites){
 
@@ -364,12 +338,10 @@ for(site in sites){
     ylim=30
   }
 
-
-  #prepare eq_dyn_obs for plotting on the same graph as regrowth:
+  # prepare eq_dyn_obs for plotting on the same graph as regrowth:
   eq_dyn_obs <- eq_dyn_obs %>% group_by(site) %>% mutate(new_plot_loc = last_sim_year + (Year - max(Year)))
 
-
-  #load and plot models, as boxplots:
+  # load and plot models, as boxplots:
     lgth <- length(models_avail)
    for(i in 1:lgth){
     model_name <- models_avail[i] # calling models this like this, because I need an index for plotting:
@@ -395,10 +367,10 @@ for(site in sites){
     }
    }
 
-  #add mature forest observations:
-  # Percentile ranking of values within each age bin (FIN) with 10th and 90th upper percentile boundary.
+  # add mature forest observations:
+  # percentile ranking of values within each age bin (FIN) with 10th and 90th upper percentile boundary.
   # use all datapoints (regardless of upper or lower or median value) for the construction of the boxplot,
-  # Unlike for the supplementaries, we no longer plot annual timeseries values, but treat all years as a piece of evidence for "an equilibrium" range.
+  # unlike for the supplementaries, we no longer plot annual timeseries values, but treat all years as a piece of evidence for "an equilibrium" range.
 
     combined_data <- c(eq_dyn_obs[which(eq_dyn_obs$site == site),]$AGB_kgCm2,
                        eq_dyn_obs[which(eq_dyn_obs$site == site),]$AGB_upper_kgCm2,
@@ -423,7 +395,6 @@ for(site in sites){
    axis(2, lwd = 1, cex.axis = 0.9,labels = FALSE,tck=-0.02)
    axis(1, tck = 0.01 ,cex.axis = 0.8,labels = FALSE,tck=0.01)
 
-
    modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
                ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
    axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
@@ -436,7 +407,6 @@ for(site in sites){
   mtext(paste0(def(site)),adj=0.97,side=3,line=-1.1,cex = 0.8)
 
 }
-
 
  par(fig=c(0,0.75,0.001,0.05), oma=c(2,1,0.5,0.1), mar=c(0,2,0,0),new=TRUE)
     # add legend into FIN, there is the most space:
@@ -454,15 +424,12 @@ for(site in sites){
 
 dev.off()
 
-
-
 ```
 
 ```{r supplementary_materials_regrowth_individual_model, eval=TRUE}
 # single-model regrowth and mature equilibrium carbon content, in one single graph.
 # the data are not aggregated, but are shown as their annual values, as was provided
 # to the modellers alongside the simulation protocol
-
 
 pdf(file=paste0(Figs_dir,"NotesS4_Benchmark_regrowth_per_model.pdf"))
 
@@ -476,7 +443,7 @@ eq_dyn_obs <- read.csv(paste0(obs.path,"benchmark_eq_dynamics.csv"),head =TRUE)
 for( model_name in models_avail){
   print(model_name)
   par(mfcol=c(3,1),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
-###############################################################
+
   for(site in sites){
   regrowth_benchmarks(model_name = model_name,site_in = site,var_in=var, regrowth_obs_in = regrowth_obs, eq_dyn_obs_in = eq_dyn_obs)
 }
@@ -546,7 +513,8 @@ run = "P0"
    AGcwood_equilibrium[which(AGcwood_equilibrium$sites==site),]$max <- max(AGcwood_equilibrium[which(AGcwood_equilibrium$sites==site),1:length(models_avail)],na.rm=TRUE)
 
  }
-#now combine the tables here, or keep separate if wanted:
+
+# now combine the tables here, or keep separate if wanted:
 
 knitr::kable(AGcwood_30years,caption = "Aboveground woody carbon (AGcwood, KgC m2) after 30 years of disturbance recovery, by model and site.")
 
@@ -560,14 +528,12 @@ knitr::kable(combined,caption = "Aboveground woody carbon (AGcwood, KgC m2) afte
 
 ```
 
-
-
-## stand structure
+## Stand structure
 
 ```{r Figure4_benchmark_forest_structure_allmodels, eval=TRUE}
 
-#png(filename=paste0(Figs_dir,simdate,"/Figure_4.png"),width=150,height=150,units = "mm",res=960)
-bitmap(file=paste0(Figs_dir,simdate,"/Figure_4.png"),width=80,height=80,units="mm",res =960,type="png16m")
+png(filename=paste0(Figs_dir,simdate,"/Figure_4.png"),width=150,height=150,units = "mm",res=960)
+#bitmap(file=paste0(Figs_dir,simdate,"/Figure_4.png"),width=80,height=80,units="mm",res =960,type="png16m")
 
 # stand structure: nstems and AGB (woody aboveground carbon), now called AGcwood
 
@@ -576,13 +542,10 @@ stand_structure_obs <- read.csv(paste0(obs.path,"benchmark_stand_structure.csv")
 stand_structure_obs[which(stand_structure_obs$site =="FI"),]$site <- "FIN"
 dbh_classes_plot <- stand_structure_obs[which(stand_structure_obs$site == "BCI"),]$dbh_classes_num # retrieve all possible bin classes
 
-
 par(mfcol=c(3,2),mar=c(0,3,0,0),oma=c(3,0.5,0,0.3))
-
 
 ylim_set = c(-7,7)
 cex_model_points = 1
-
 
 for(site in sites){
 
@@ -652,7 +615,6 @@ for(site in sites){
      axis(1, tck = 0.01 ,cex.axis = 0.8,labels = FALSE,tck=0.01)
   }
 
-
   if(site=="BCI"){
     legend(legend = c("BiomeES","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS","EDv3","SEIB-DGVM","ORCHIDEE"),
          #lty=rep(NA,7),lwd=rep(NA,7),pch=rep(16,7),
@@ -669,15 +631,11 @@ for(site in sites){
                  get_model_colour("ORCHIDEE"))
                  ,"bottom",ncol=3,cex=0.78, bty = "n", box.col="white", bg="white" )
 
-
   }
 
 }
 
 mtext(side=2,expression(log(nstems)~(nstems~ha^-1)),line=-1.3,outer=TRUE)
-
-####################################################################################
-
 
 ylim_set = c(0,5)
 var ="cwood_size"
@@ -711,7 +669,6 @@ for(site in sites){
  }
 
     max_obs <- max( na.omit(stand_structure_obs[,c("AGB_size_kgCm.2","AGB_size_upper_kgCm.2","AGB_size_lower_kgCm.2")]) )
-
 
     points(stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,#[1:12],
            stand_structure_obs[which(stand_structure_obs$site == site),]$AGB_size_kgCm.2,#[1:12],
@@ -751,13 +708,10 @@ for(site in sites){
 
 }
 
-
 mtext(side=2,expression(C["wood,AG"]~(kgC~m^-2)),line=-24,outer=TRUE)
 mtext(side=1,"dbh-class",line=1.5,outer=TRUE)
 
-
 dev.off()
-
 
 ```
 
@@ -775,10 +729,8 @@ pdf(file=paste0(Figs_dir,"/NotesS3_Benchmark_stand_structure_per_model.pdf"))
 for(model_name in models_avail){
   print(model_name)
 
-
   par(mfrow=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
   for(site in sites){
-
 
     if( model_name=="CABLE-POP"| model_name == "LPJ-GUESS"){
       run = "P1" # must use P1 simulations, because a little background disturbance must occur to reflect stand processes in these models.
@@ -794,9 +746,7 @@ for(model_name in models_avail){
   mtext(outer=TRUE,"dbh-class (cm)",side=1,cex=1, line =1)
 }
 
-
 dev.off()
-
 
 ```
 
@@ -815,7 +765,6 @@ letters <- c("a", "b", "c", "d", "e", "f","g","h","i")
 stand_structure_obs <- read.csv(paste0(obs.path,"benchmark_stand_structure.csv"),head =TRUE)
 stand_structure_obs[which(stand_structure_obs$site =="FI"),]$site <- "FIN"
 #stand_structure_benchmarks(model_name="LPJ-GUESS",site_in = site, takelog =TRUE, var_in="nstem_size", stand_structure_obs)
-
 
 model_name = "LPJ-GUESS"
   plot_year=450
@@ -863,10 +812,7 @@ model_name = "LPJ-GUESS"
 
      mtext(paste0(letters[i],") ",site),adj=0.95,side=3,line=-1.3,cex=1)
     i=i+1
-    ############
 
-
-    ############
     var_in="cwood_size"
     stand_structure_benchmarks(model_name = model_name, site_in = site, takelog = TRUE,  var_in = var_in,
                                ylim_ext = c(0,4),stand_structure_obs_in = stand_structure_obs, run="P0",
@@ -894,8 +840,7 @@ model_name = "LPJ-GUESS"
 dev.off()
 ```
 
-
-## Self thinning
+## Self-thinning
 
 EDv3 used cmort-based mortality for evaluation of mortality rate thresholds.
 
@@ -904,6 +849,7 @@ cwood_size: Carbon mass in wood by size class (kgC m-2)
 nstem_size: Stem number by size class (count ha-1)
 
 Deviations: ORCHIDEE: AGcwood
+
 ```{r Supplementary_Materials_benchmarking_self_thinning,eval=TRUE}
 
 # Self-thinning relationships should ideally be performed on Aboveground woody carbon (AGcwood), as is done in the observations, but we only have AGcwood output as total or per PFT.
@@ -938,7 +884,6 @@ legend("center",legend=c("method 1) > 95% thinning mort", "method 2) > 95% total
 
 #data frame where I collect the manually adjusted upper and lower boundary of the indexes to derive the self-thinning line.
 
-
 manual_adjustment = data.frame(models_avail =rep(x = models_avail,each=3), site = rep(sites,length(models_avail)))
 manual_adjustment$upper <- NA
 manual_adjustment$lower <- NA
@@ -947,11 +892,9 @@ manual_adjustment_empty <- manual_adjustment
 manual_adjustment$mort_rate_name <- NA
 manual_adjustment$identification_method <- NA
 
-
 #EDv3
 
 adjust_EDv3=FALSE
-
 
  manual_adjustment[which(manual_adjustment$models_avail == "EDv3"
                           & manual_adjustment$site == "BCI"),]$upper <- as.numeric(55)#as.numeric(467) # period with peak nstem numbers
@@ -976,8 +919,6 @@ if(isTRUE(adjust_EDv3)){
 
 }
 
-
-
 #ORCHIDEE
   mansel=FALSE
 
@@ -1001,7 +942,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "ORCHIDEE"
 manual_adjustment[which(manual_adjustment$models_avail == "ORCHIDEE"
                         & manual_adjustment$site == "BCI"),]$identification_method <- "4" # manual adjustment
 }
-
 
 #SEIB-DGVM
 
@@ -1035,7 +975,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "FATES"
 manual_adjustment[which(manual_adjustment$models_avail == "FATES"
                         & manual_adjustment$site == "FIN"),]$lower <- as.numeric(115) #32
 
-
 #JULES-RED
 #manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_adjustment$site == "FIN"),]$lower <- as.numeric(105)
 #manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_adjustment$site == "FIN"),]$upper <- as.numeric(200)
@@ -1049,7 +988,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_a
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$lower <- as.numeric(190)
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$upper <- as.numeric(220)
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$identification_method <- "4" # manual adjustment
-
 
 for(site in sites){
 
@@ -1111,7 +1049,6 @@ for(site in sites){
 
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$identification_method <- "1"
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$mort_rate_name <- "cstarv"
-
 
     }else if(model_name =="CABLE-POP"){
       # we cannot separate this by sizeclass, which is a bit problematic, but maybe it works anywyas, to show the crowding mechanism.
@@ -1231,8 +1168,7 @@ for(site in sites){
     #add self-thinning line to graph
     abline(lm(MODEL[,2] ~ MODEL[,1]),col= "blue" )
 
-
-    #add information on whether the data points were  manually adjusted before creating the self-thinning line:
+    # add information on whether the data points were  manually adjusted before creating the self-thinning line:
     if(is.na(manual_adjustment[which(manual_adjustment$models_avail == model_name
                            & manual_adjustment$site == site),]$identification_method)){
     # everything that is at this stage not categoriesed at the end was automatically adjusted (step 4).
@@ -1241,7 +1177,6 @@ for(site in sites){
     n = manual_adjustment[which(manual_adjustment$models_avail == model_name & manual_adjustment$site == site),]$identification_method
     #report on slope and method used to derive slope:
     mtext(side=3,line=-4, paste("method",n))
-
 
     if(!is.null(MODEL_mort)){
       # fit the timeseries with the selected period:
@@ -1255,6 +1190,7 @@ for(site in sites){
       manual_adjustment[which(manual_adjustment$models_avail == model_name & manual_adjustment$site == site),]$lower <- idx[1]
 
     }
+    
     #for those models with manual adjustment, create the mortality timeseries here and then plot:
     if(is.null(MODEL_mort)){
        # retrieve timeseries now, for diagnosing where self-thinning points lie:
@@ -1296,7 +1232,6 @@ for(site in sites){
 
     }
 
-
     # plot the timeseries with the selected period:
     idx <- MODEL_plot$time
 
@@ -1336,14 +1271,12 @@ dev.off()
 #mean(report_self_thinning[which(report_self_thinning$site=="FIN"),]$lower)
 #52.77778
 
-
 #in-text reporting of self-thinning durations:
 #max(report_self_thinning[which(report_self_thinning$site=="BCI"& report_self_thinning$Model!="ORCHIDEE"),]$duration)
 
 #max(report_self_thinning[which(report_self_thinning$site=="BIA"& report_self_thinning$Model!="ORCHIDEE"),]$duration)
 
 #max(report_self_thinning[which(report_self_thinning$site=="FIN" & report_self_thinning$Model!="ORCHIDEE"),]$duration)
-
 
 report_self_thinning <-merge(manual_adjustment,collect_final,by.x=c("models_avail","site"), by.y=c("Mname","site"))
 report_self_thinning$co2 <- NULL
@@ -1354,10 +1287,11 @@ knitr::kable(report_self_thinning[,c("Model","site","lower","upper","duration","
 ```
 
 repeat the above, now for the main text, with data:
+
 ```{r Figure_3_benchmark_self_thinning}
 
-bitmap(file=paste0(Figs_dir,simdate,"/Figure_3.png"),width=80,height=90,units="mm",res =1300,type="png16m")
-
+png(filename=paste0(Figs_dir,simdate,"/Figure_3.png"),width=80,height=90,units = "mm",res=1300)
+#bitmap(file=paste0(Figs_dir,simdate,"/Figure_3.png"),width=80,height=90,units="mm",res =1300,type="png16m")
 
 #load benchmark data:
 Conif <- read.csv(paste0(obs.path,"/Benchmark_Conif_Teo_self_thinning.csv"),head=TRUE)
@@ -1429,7 +1363,6 @@ for(site in sites){
 
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$identification_method <- "1"
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$mort_rate_name <- "cstarv"
-
 
     }else if(model_name =="CABLE-POP"){
       # we cannot separate this by sizeclass, which is a bit problematic, but maybe it works anywyas, to show the crowding mechanism.
@@ -1530,7 +1463,6 @@ for(site in sites){
       }
     ############ ############ ############ ############ ############ ############
 
-
     ##fit the self-thinning line:
     m <- lm(MODEL[,2:1])
     if(model_name ==models_avail[1]){
@@ -1564,23 +1496,17 @@ for(site in sites){
 
     }
 
-
-
    rm(MODEL_mort) # reset to null, so that the thinning period can be correctly identified and the automated plots work in that function.
 
     axis(1,  line = -0.6, lwd = 0)#, cex.axis = 0.9)
     axis(1, lwd = 1,labels = FALSE)
 
-
   }
-
 
 mtext(side=2,"log(mean indiv. cwood)", outer=TRUE, line=1)
 mtext("log(nstem)",outer=TRUE,adj=0.2,  side=1,line=1)
 
-
-######add boxplots
-
+# add boxplots
 
   par(fig=c(6.5,12,0,6)/12)
   par(new=T)
@@ -1603,7 +1529,6 @@ abline(h= -1, lty=1,  col="grey") # evidence2: Mrad et al 2020
 boxplot(STLslope~site,collect_final, col = c(get_biome_colour("BCI"),get_biome_colour("BIA"),get_biome_colour("FIN") ), ylim=c(0,-3), ylab="", xlab="", add=TRUE)
 mtext(paste("d)"),adj=0.02,side=3,line=-1.6)
 
-
 for(model_name in models_avail){
   #make sure FATES is located on "1"
   if(model_name=="FATES"){
@@ -1621,7 +1546,6 @@ for(model_name in models_avail){
 for(model_name in models_avail){
   points(jitter(3,1),collect_final[which(collect_final$site=="FIN" & collect_final$Mname==model_name),"STLslope"], col = get_model_colour(model_name), pch=16)
 }
-
 
 mtext("self-thinning slope", side=2, line =2)
 legend(legend = c("BiomeES","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS","EDv3","SEIB-DGVM","ORCHIDEE", "observations/theory"),
@@ -1645,34 +1569,26 @@ knitr::kable(table_out[,c("Mname","STLslope","site")],col.names=c("Model","STslo
 
 ```
 
+## Turnover and growth
 
-
-## turnover and growth
 ```{r Figure_5_turnover_and_growth}
 
 #png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=215,height=340,units="mm",res =300)
-#png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1000)
-bitmap(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1300,type="png16m")
+png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1000)
+#bitmap(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1300,type="png16m")
 
 eq_dyn_obs <- read.csv(paste0(obs.path,"/benchmark_eq_dynamics.csv"),head =TRUE)
 turnover_obs <- read.csv(paste0(obs.path,"/benchmark_turnover_times.csv"),head=TRUE) 
 WBgrowth_obs <- read.csv(paste0(obs.path,"/benchmark_WBgrowth.csv"),head=TRUE) 
 
-
-
 tiff(file=paste0(Figs_dir,simdate,"/Figure_5.tiff"),width=160,height=200,units="mm",res =1300)
 
 #tiff("boxplot_highres.tiff", width = 180, height = 240, units = "mm", res = 600)
 
-
-
 par(mfcol=c(3,2),mar=c(0,3,0,0),oma=c(10,1,1,0))
-####################################################################################
-
 
 model_pch = 16
 n_models = 9
-
 
 ######################## FIN
 collect_turnover_FIN <- list()
@@ -1708,7 +1624,6 @@ boxplot_data <- collect_turnover_FIN
 # add observations:
 boxplot_data$Observations <- FIN_Turnover$turnover_time
 
-
 # Set plot limits
 ymin <- 0
 ymax <- 460
@@ -1736,14 +1651,12 @@ for(model_name in models_avail){
   i=i+1 # next model position
 }
 
-
 rm_dot <- c(3,4,5,8) # some models have large boxplots, so don't need dots for identification by colour
 boxplot_md <- sapply(boxplot_data[-10],median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
 points(c(1:9)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
 boxplot(at=10,na.omit(c(boxplot_data$Observations)),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
-
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
@@ -1756,10 +1669,8 @@ axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(abc(site)),adj=0.02,side=3,line=-1.4)
 # ylim = c(ymin, ymax))
-##########
 
-
-########################BIAlovieza
+######################## BIAlovieza
 site="BIA"
 BIA_Turnover <- turnover_obs[grepl("^NHR.bial\\.", turnover_obs$site), ]
 names(BIA_Turnover) <- c("site","year","biomass_alive","mort_flux","turnover_time_yr","mortality_rate")
@@ -1799,7 +1710,6 @@ for(model_name in models_avail){
 boxplot_data <- collect_turnover_BIA
 # add observations:
 boxplot_data$Observations <- BIA_Turnover$turnover_time
-
 
 # Set plot limits
 ymin <- 0
@@ -1846,8 +1756,6 @@ axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(abc(site)),adj=0.02,side=3,line=-1.4)
 # ylim = c(ymin, ymax))
-##########
-
 
 ######################## BCI
 site="BCI"
@@ -1855,7 +1763,6 @@ BCI_Turnover <- turnover_obs[grepl("^BCI", turnover_obs$site), ]
 names(BCI_Turnover) <- c("site","year","biomass_alive","mort_flux","turnover_time","mortality_rate")
 var  = "cmort"
 run  = "P0" # note: differs for LPJ-GUESS and CABLE-POP
-
 
 #the equilibrium periods between models are differently long, I collect them in a list of vectors:
 collect_turnover_BCI <- list()
@@ -1887,7 +1794,6 @@ for(model_name in models_avail){
 boxplot_data <- collect_turnover_BCI
 # add observations
 boxplot_data$Observations <- BCI_Turnover$turnover_time
-
 
 # Set plot limits
 ymin <- 0
@@ -1933,11 +1839,7 @@ axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(abc(site)),adj=0.01,side=3,line=-1.4)
 
-########################
-
-
-########################################################################
-#Final plot aesthetics for first column:
+# final plot aesthetics for first column:
 
 modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
              ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
@@ -1945,20 +1847,15 @@ axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
 
 mtext(side=2,"turnover time (years)",line=-1, outer =TRUE)
 
-
-
-
-########################################################################
 #WBgrowth benchmark:
 
 ylim_wbgrowth =c(0,1.3)
 
-########################Finland
+######################## Finland
 site = "FIN"
 
 benchmark_WBgrowth <- read.csv(paste0(obs.path,"benchmark_WBgrowth.csv"))
 FIN <- benchmark_WBgrowth[which(benchmark_WBgrowth$site =="FIN"),]
-
 
 # model output:
 collect_boxplot_growth_FIN <- list()
@@ -1972,7 +1869,6 @@ for(model_name in models_avail){
 boxplot_data <- collect_boxplot_growth_FIN
 # add observations
 boxplot_data$Observations <- FIN$WBgrowth_kgC_m2_yr
-
 
 # Set plot limits
 ymin <- 0
@@ -2018,10 +1914,7 @@ axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
 
-
-
-#BIAlovieza
-#################
+################## BIAlovieza
 
 # TMT data
 BIA <- benchmark_WBgrowth[which(benchmark_WBgrowth$site =="BIA"),]
@@ -2039,7 +1932,6 @@ for(model_name in models_avail){
 boxplot_data <- collect_boxplot_growth_BIA
 # add observations
 boxplot_data$Observations <- BIA$WBgrowth_kgC_m2_yr
-
 
 # Set plot limits
 ymin <- 0
@@ -2085,8 +1977,7 @@ axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
 
-
-##########BCI
+########## BCI
 BCI <- benchmark_WBgrowth[which(benchmark_WBgrowth$site =="BCI"),]
 
 var  = "WBgrowth"
@@ -2104,7 +1995,6 @@ boxplot_data <- collect_boxplot_growth_BCI
 # add observations
 boxplot_data$Observations <- BCI$WBgrowth_kgC_m2_yr
 
-
 # Set plot limits
 ymin <- 0
 ymax <- 1.2
@@ -2119,7 +2009,6 @@ bp_stats <- boxplot(boxplot_data$Observations, plot = FALSE)
 #NOTE: deviation from above:
 lower <- min(BCI$WBgrowth_kgC_m2_yr,na.rm = TRUE)
 upper <- max(BCI$WBgrowth_kgC_m2_yr,na.rm = TRUE)
-
 
 x_coords <- c(0.5, n_models + 0.5, n_models + 0.5, 0.5)
 y_coords <- c(lower, lower, upper, upper)
@@ -2152,14 +2041,11 @@ axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
 
-
-
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 axis(side=2,tick = F,line = -0.7)#,at=c(420,430,440,450))
 axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
 box()
 mtext(paste0(def(site)),adj=0.01,side=3,line=-1.4)
-
 
 modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
              ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
@@ -2188,13 +2074,11 @@ mtext(outer =TRUE, "BCI", side=3, adj=0.01, line=-34)
 
 dev.off()
 
-
-
 ```
 
+# Forest phase identification
+Used for manual alignment of cmort and Wbgrowth, in preparation for Figure 2
 
-# forest phase identification
-used for manual alignment of cmort and Wbgrowth, in preparation for Figure 2
 ```{r forest_regrowth_phase_identification_for_alignment_1}
 # these plots  are part of the powerpoint slides, submitted as Notes S2
 
@@ -2228,7 +2112,6 @@ for (site in sites){
     cveg@data <- cveg@data[1:n,]
     cmort_rate <- create_mort_rate(cmort,cveg, var_in = "stemmort_rate") # operates on total only
 
-
   }else{
     cmort      <- get_model_output(site=site, run="P0",var= "cmort",model_name=model_name, co2_levels = "412ppm")
     cmort@data <- cmort@data[1:n,] # shorten timeperiod, we are for now just interested in regrowth phase
@@ -2238,7 +2121,6 @@ for (site in sites){
     cmort_rate <- create_mort_rate(cmort,cwood, var_in = "cmort_rate") # operates on total only
    # plotTemporal(cmort_rate)
   }
-
 
 cmort_rate_regrowth <- omit_equilibrium_phase(data_object = cmort_rate,site = site,model_name = model_name,selection_by_year = TRUE)
 #smoothing =TRUE
@@ -2250,9 +2132,7 @@ if(smoothing){
 
 cmort_rate_regrowth_mean_p <- plotTemporal(cmort_rate_regrowth,layers = c("Total"),subtitle = NULL, title = paste0("Mortality rate (",cmort_rate@quant@id,")"),y.label = "wood or stems lost due to mortality (% yr-1)")
 
-
 nstem_size <- get_model_output(site=site, run="P0",var= "nstem_size",model_name=model_name, co2_levels = "412ppm")
-
 
 nstem_size@data <- nstem_size@data[1:n, ]
 nstem_size_regrowth <- omit_equilibrium_phase(data_object = nstem_size,site = site,model_name = model_name,selection_by_year = TRUE)
@@ -2269,9 +2149,7 @@ if(model_name=="JULES-RED"|model_name =="FATES"){
 
 }
 
-
 nstem_size_estab_10plus[which(nstem_size_estab_10plus$sites==site),model_name] <- nstem_size_regrowth@data[2,   c("<15")]
-
 
 # for plotting of the timeseries, select only the young/small trees
 if(model_name =="JULES-RED" |model_name =="FATES"){ # no trees <1 in JULES
@@ -2281,9 +2159,6 @@ if(model_name =="JULES-RED" |model_name =="FATES"){ # no trees <1 in JULES
   nstem_size_regrowth@data <- nstem_size_regrowth@data[, c( "Year",  "Lat"  ,  "Lon","<1","<5","<10","<15","Total")]
   names(nstem_size_regrowth@data) <- c( "Year",  "Lat"  ,  "Lon","sdlg<1", "sdlg<5", "saplg<10", "saplg<15","Total")
 }
-
-
-
 
 if(smoothing){
   nstem_size_regrowth <- create_rolling_means(var_to_plot =
@@ -2296,13 +2171,10 @@ if(model_name =="JULES-RED"|model_name =="FATES"){
                                            layers = c("sdlg<5", "saplg<10", "saplg<15","Total"), subtitle =NULL,
                                            title = "Number of stems (nstems)", y.label= nstem_size_regrowth@quant@units)
 
-
   }else{
     nstem_size_regrowth_mean_p <- plotTemporal(nstem_size_regrowth,
                                            layers = c("sdlg<1", "sdlg<5", "saplg<10", "saplg<15","Total"), subtitle =NULL,
                                            title = "Number of stems (nstems)", y.label= nstem_size_regrowth@quant@units)
-
-
 
   }
 
@@ -2319,7 +2191,6 @@ if(smoothing){
 
 }#plotTemporal(cveg_regrowth_mean) # only Total was treated here. Cannot interpret sizeclass output
 cveg_regrowth_mean_p <- plotTemporal(cveg_regrowth , subtitle = NULL, title = paste0("Vegetation carbon (cveg)",site), y.label= cveg_regrowth@quant@units)
-
 
 #EDv3 do not have CA:
 if( model_name =="EDv3"){
@@ -2368,9 +2239,7 @@ grid.arrange(cmort_rate_regrowth_mean_p,nstem_size_regrowth_mean_p,CA_regrowth_m
 
 }
 
-
 #dev.off()
-
 
 #now combining them to a larger table
 nstem_size_estab_upto10$sclass <- "<10"
@@ -2378,15 +2247,14 @@ nstem_size_estab_10plus$sclass <- "<15"
 nstem_size_estab <- rbind(nstem_size_estab_upto10,nstem_size_estab_10plus)
 #year1 <- nstem_size_estab
 
-
 ```
 
 used for manual alignment of cmort 
+
 ```{r mortality_rates_%kgCyr}
 #create mortality rates from flux variable cmort_size and pool variable cwood, where possible.
 #remove small sizeclasses, that way this output becomes more relevant when directly comparing to observations.
 #note that FATES uses non-woody mortality flux, so we have to compute a full vegetation biomass turnover for FATES
-
 
 #upper plot range:
 xmax <- 430
@@ -2404,8 +2272,6 @@ var_names_cmort_rates <- data.frame(lower=rep(NA,9))
 var_names_cmort_rates$cwood  <- c("cwood_size",   "cveg_total",  "AGcwood" ,"cwood_size",   "cwood_size", "cwood" ,  "cwood_size", "cwood_size" , "cwood_size")
 var_names_cmort_rates$cmort  <- c("cmort"     ,        "cmort",     "cmort",     "cmort",        "cmort",  "cmort",  "cmort_size",  "cmort"     ,      "cmort")
 var_names_cmort_rates$model  <- models_avail
-
-
 
 for(site in sites){
 
@@ -2463,8 +2329,6 @@ for(site in sites){
   }# models_avail
 }# sites
 
-
-
 # adress some "NaN" and inf. where either no trees or no mortality flux at the
 # start of recovery, and therefore the maths hasn't worked on those years.
 # Now correct that: when there is 0 mortality flux, then mortality rate is 0.0.
@@ -2481,8 +2345,8 @@ mort <- lapply(mort, function(df) {
   # now creating rolling means of rates:
   mort_rate_means <- create_rolling_means(mort_rate,k = k,total_only = TRUE,
                                                 align = "left")@data$Total
-########################################################
-bitmap(file=paste0(Figs_dir,"FigS15_mortality_rates_FIN.png"),width=180,height=180,units="mm",res =380,type="png16m")
+png(filename=paste0(Figs_dir,"FigS15_mortality_rates_FIN.png"),width=180,height=180,units = "mm",res=380)
+#bitmap(file=paste0(Figs_dir,"FigS15_mortality_rates_FIN.png"),width=180,height=180,units="mm",res =380,type="png16m")
 
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3), mar=c(2,2,1,0))
 
@@ -2494,9 +2358,6 @@ for(model_name in models_avail){
   plot(1:xmax,t(mort[[site]][model_name])[1:xmax], col = get_model_colour(model_name) , ylim=c(-0.5,(max(t(mort[[site]][model_name]+3),na.rm = TRUE))),type="l",main=paste(model_name), ylab="", xlab="")
   mtext(abcdfeghijkl(model_name),side=3,line=-1.3,adj=0.98)
 }
-
-
-
 
 mtext(outer = TRUE,side=2,"Woody carbon mortality rate (%/yr)")
 mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
@@ -2516,9 +2377,8 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 dev.off()
 
-
-########################################################
-bitmap(file=paste0(Figs_dir,"FigS16_mortality_rates_BIA.png"),width=180,height=180,units="mm",res =380,type="png16m")
+png(filename=paste0(Figs_dir,"FigS16_mortality_rates_BIA.png"),width=180,height=180,units = "mm",res=380)
+#bitmap(file=paste0(Figs_dir,"FigS16_mortality_rates_BIA.png"),width=180,height=180,units="mm",res =380,type="png16m")
 
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3),mar=c(2,2,1,0))
 
@@ -2530,9 +2390,6 @@ for(model_name in models_avail){
   plot(1:xmax,t(mort[[site]][model_name])[1:xmax], col = get_model_colour(model_name) , ylim=c(-0.5,(max(t(mort[[site]][model_name]+3),na.rm = TRUE))),type="l",main=paste(model_name), ylab="", xlab="")
   mtext(abcdfeghijkl(model_name),side=3,line=-1.3,adj=0.98)
 }
-
-
-
 
 mtext(outer = TRUE,side=2,"Woody carbon mortality rate (%/yr)")
 mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
@@ -2552,9 +2409,8 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 dev.off()
 
-
-########################################################
-bitmap(file=paste0(Figs_dir,"FigS17_mortality_rates_BCI.png"),width=180,height=180,units="mm",res =1300,type="png16m")
+png(filename=paste0(Figs_dir,"FigS17_mortality_rates_BCI.png"),width=180,height=180,units = "mm",res=1300)
+#bitmap(file=paste0(Figs_dir,"FigS17_mortality_rates_BCI.png"),width=180,height=180,units="mm",res =1300,type="png16m")
 
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3),mar=c(2,2,1,0))
 
@@ -2566,7 +2422,6 @@ for(model_name in models_avail){
   plot(1:xmax,t(mort[[site]][model_name])[1:xmax], col = get_model_colour(model_name) , ylim=c(-0.5,(max(t(mort[[site]][model_name]+3),na.rm = TRUE))),type="l",main=paste(model_name), ylab="", xlab="")
   mtext(abcdfeghijkl(model_name),side=3,line=-1.3,adj=0.98)
 }
-
 
 mtext(outer = TRUE,side=2,"Woody carbon mortality rate (%/yr)")
 mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
@@ -2582,8 +2437,8 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
                get_model_colour("JULES-RED"),
                get_model_colour("LPJ-GUESS"),
                get_model_colour("EDv3")),"center",cex=1.6, title = "DVMs",box.lwd = 0, box.col = "white",bg = "white")
-dev.off()
 
+dev.off()
 
 ```
 
@@ -2649,7 +2504,7 @@ for(site in sites){
   # now creating rolling means of rates:
   mort_rate_means <- create_rolling_means(mort_rate,k = k,total_only = TRUE,
                                                 align = "left")@data$Total
-########################################################
+
 #bitmap(file=paste0(Figs_dir,"SXX_growth_rates_FIN.png"),width=180,height=180,units="mm",res =380,type="png16m")
 
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3), mar=c(2,2,1,0))
@@ -2683,10 +2538,6 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 #dev.off()
 
-
-########################################################
-#bitmap(file=paste0(Figs_dir,"SXX_growth_rates_BIA.png"),width=180,height=180,units="mm",res =380,type="png16m")
-
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3),mar=c(2,2,1,0))
 
 site="BIA"
@@ -2719,10 +2570,6 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 #dev.off()
 
-
-########################################################
-#bitmap(file=paste0(Figs_dir,"SXX_growth_rates_BCI.png"),width=180,height=180,units="mm",res =1300,type="png16m")
-
 par(mfrow =c(3,4), oma=c(2,2,0.1,0.3),mar=c(2,2,1,0))
 
 site="BCI"
@@ -2750,15 +2597,12 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
                get_model_colour("EDv3")),"center",cex=1.6, title = "DVMs",box.lwd = 0, box.col = "white",bg = "white")
 #dev.off()
 
-
-
-
 ```
 
 This is now figure 2 after revisions
 ```{r mort_growth_spaghetti_plot}
-bitmap(file=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units="mm",res =1000,type="png16m")
-
+png(filename=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units = "mm",res=1000)
+#bitmap(file=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units="mm",res =1000,type="png16m")
 
 #collect growth and mort statistics during early recovery - prepare extended data frame:
 FULL <- combined
@@ -2951,9 +2795,8 @@ knitr::kable(FULL,caption = "Collection of Variables summarised across the first
 save(FULL,file = "../model_outputs/all_models_30year_summary_stats.RData")
 ```
 
-
-
 #Supplementary materials
+
 ## PFT sucession
 
 "For example, the double-hump in growth rate changes in LPJ-GUESS, BiomeE and BiomeEP is caused by a change in PFT species composition (more clearly seen in %cveg, supplementary materials)"
@@ -2973,7 +2816,8 @@ create_gobj <- function(model_out, y.lim = NULL,layers=NULL){
   return(p_out)
 }
 
-bitmap(file=paste0(Figs_dir,"/FigS14_growth_rates_and_succession.png"),width=80,height=120,units="mm",res =480,type="png16m")
+png(filename=paste0(Figs_dir,"FigS14_growth_rates_and_succession.png"),width=80,height=120,units = "mm",res=480)
+#bitmap(file=paste0(Figs_dir,"/FigS14_growth_rates_and_succession.png"),width=80,height=120,units="mm",res =480,type="png16m")
 
 par(mfcol =c(1,2), oma=c(4.2,0,0.8,1.5),mar=c(0,3,0,1))
 
@@ -2995,8 +2839,7 @@ grid.arrange(p_LPJG,p_BiomeE_standlone)
 #mtext 
 dev.off()
 
-
-######modifying function quickly for a better layout:
+###### modifying function quickly for a better layout:
 create_gobj_nolegend <- function(model_out, y.lim = NULL,layers=NULL){
   #if(model_out@source@name ==  "LPJGUESS BCI - P0"){ # enhance title, so that the reader understands what layers are currently plotted
   x <- model_out@source@name
@@ -3010,6 +2853,7 @@ xprint <- sub(" .*", "", x)
 
   return(p_out)
 }
+
 #bitmap(file=paste0(Figs_dir,simdate,"/S19_all_models_biomass_succession.png"),width=80,height=120,units="mm",res =480,type="png16m")
 pdf(file=paste0(Figs_dir,"FigS19_all_models_biomass_succession.pdf"))
 
@@ -3044,7 +2888,6 @@ for(site in sites){
     EDv3 <- get_model_output(var = "cwood",run=run,site = site,model_name =
                                            "EDv3",co2_levels = "412ppm")
     
-    
     JRED <- create_rolling_means(JRED, k=30, rm_firstX_years = 32)
     p_JRED <- create_gobj_nolegend(JRED)
     p_JRED_legend <-  plotTemporal(JRED, legend.position = "right", 
@@ -3069,7 +2912,7 @@ for(site in sites){
     p_EDv3 <- plotTemporal(EDv3, legend.position = "none", y.label =
                              paste(EDv3@quant@name,"\n",EDv3@quant@units),
                            x.label = "", title ="", subtitle= "EDv3",text.multiplier = 0.8)
-#                          
+                        
     #last one for a legend: 
     p <- as_ggplot(get_legend(p_JRED_legend))
     grid.arrange(
@@ -3085,20 +2928,17 @@ for(site in sites){
     )
 }
 
-
-
-
 #file.dir.EDv3=file.dir.EDv3_backup#=file.dir.EDv3
 #file.dir.EDv3="/Users/annemarie/Library/CloudStorage/OneDrive-LundUniversity/1_TreeMort_onedrive/2_Analysis/3_analysis_demographic_model_intercomparison/D-BEN-site-sims/Paper_1/Outputs/EDv3/v3"
 dev.off()
 
 ```
 
-
-"Regrowth speed does not seem to be linked to final equilibrium biomass values."
+Regrowth speed does not seem to be linked to final equilibrium biomass values
 
 ```{r turnover_times_}
-bitmap(file=paste0(Figs_dir,"/FigS18_regrowth_speed_biomass_equilibrium.png"),width=80,height=120,units="mm",res =480,type="png16m")
+png(filename=paste0(Figs_dir,"FigS18_regrowth_speed_biomass_equilibrium.png"),width=80,height=120,units = "mm",res=480)
+#bitmap(file=paste0(Figs_dir,"/FigS18_regrowth_speed_biomass_equilibrium.png"),width=80,height=120,units="mm",res =480,type="png16m")
 
 #prepare dataframe that collects all variables for plotting:
 collect_turnover_npp <- data.frame(Mname=models_avail,turnover =NA,npp =NA,regr100 = NA,eq_biomass = NA,site= "BCI")
@@ -3132,7 +2972,6 @@ for(site in sites){
     }
 }
 
-
 par(mfcol=c(3,2), oma=c(6,2,1,1), mar=c(0,2,0,2))
 
 # regrowth speed against eq biomass
@@ -3146,7 +2985,6 @@ for(site in sites){
            ,ylim=c(0,50),col=get_model_colour(model_name),pch=16,cex=2)
     }
    mtext("eq. biomass (KgC m-2)",side=2, line=2)
-
 
     # Fit the linear model
     model <- lm(eq_biomass ~ regr100, data = collect_turnover_npp[which(collect_turnover_npp$site==site),])
@@ -3226,7 +3064,6 @@ for(site in sites){
     collect_turnover_npp[which(collect_turnover_npp$Mname==model_name &collect_turnover_npp$site==site),]$npp <- mean(npp@data$Total[1:70])
     }
 }
-
 
 par(mfcol=c(3,2), oma=c(6,2,1,1), mar=c(0,2,0,2))
 
@@ -3310,7 +3147,6 @@ for(site in sites){
 
 }
 
-##########################################################################################################
  for(site in sites){
    plot(1:length(models_avail),rep(NA,length(models_avail)),ylim=c(0,50), xaxt="n")
     for( idx in 1:length(models_avail)){
@@ -3318,7 +3154,6 @@ for(site in sites){
 
       points(idx,
            collect_turnover_npp[which(collect_turnover_npp$site==site & collect_turnover_npp$Mname ==model_name),]$turnover,ylim=c(0,50),col=get_model_colour(model_name),pch=16, xlim=c(0,20),cex=2)
-
 
     }
    mtext("C residence time (yr)",side=2, line=2)
@@ -3332,9 +3167,7 @@ for(site in sites){
 
 ```{r Supplementary_analysis_temperature_distributions}
 
-############
-
-#address reviewers comment to contextualise the individual site's climate conditions in the regrowth curves.
+# address reviewers comment to contextualise the individual site's climate conditions in the regrowth curves.
 # the commentedd out code creates latitude and longitude for all sites from whcih to extract climate forcing data for the below plot
 
 library(ncdf4)
@@ -3348,7 +3181,6 @@ library(geodata)
 #  Lon = c(-79.75, 23.75, 23.25), 
 #  Biome = c("Tropics_site", "Temperate_site", "Boreal_site"))
 #samples <- rbind(latlons_samples,addthis)
-
 
 #also get a subset of FIN sites:
 #FIN <- worldclim_country(countr="Finland",var="tavg",path = "../observations/1_raw/temperature_data/climate/wc2.1_5m", res = 5)
@@ -3372,7 +3204,6 @@ library(geodata)
 
 #write.csv(samples,"/Volumes/My Passport/dben/forcing_data/latlons_samples.csv",row.names = FALSE)
 
-#######################
 INS <- read.csv("../observations/1_raw/temperature_data/extracted_annual_temperatures.csv",head=TRUE)
 samples <- read.csv("../observations/1_raw/temperature_data/latlons_samples.csv",head=TRUE)
 INS$mean_temperature = INS$mean_temperature -272.15 
@@ -3380,14 +3211,12 @@ names(INS)[3:4] <- c("Lat","Lon")
 
 sample_data_crujra <- merge(INS,samples,by=c("Lon","Lat"))
 
-
 png( paste0(Figs_dir,"FigS20_met_analysis.png"), width = 90, height = 180 ,units = "mm",res = 900)  # Adjust width, height, and resolution as needed
 
 par(mfrow=c(3,1),mar=c(2,3,1,1),oma=c(2,2,0.1,0.1))
 plot(density(sample_data_crujra[which(sample_data_crujra$Biome=="Boreal"),]$mean_temperature,na.rm=TRUE),col="black", main="",ylim=c(0,1),xlim=c(0,30))
 lines(density(sample_data_crujra[which(sample_data_crujra$Biome=="Boreal_site" & sample_data_crujra$year>=1991),]$mean_temperature,na.rm=TRUE),col= get_biome_colour("Boreal"))
 mtext("a)",side=3,adj=0.02, line=-1.2)
-
 
 #rm nas, those must be coastal coordinates for which no forcing was availableL
 plot(density(sample_data_crujra[which(sample_data_crujra$Biome=="Temperate"),]$mean_temperature,na.rm=TRUE),main="",ylim=c(0,0.6),xlim=c(0,30))
@@ -3398,13 +3227,9 @@ plot(density(sample_data_crujra[which(sample_data_crujra$Biome=="Tropics"),]$mea
 lines(density(sample_data_crujra[which(sample_data_crujra$Biome=="Tropics_site"),]$mean_temperature,na.rm=TRUE),col= get_biome_colour("Tropics"))
 mtext("c)",side=3,adj=0.02, line=-1.2)
 
- 
 mtext("Frequency of occurrence",side=2,outer=TRUE)
 mtext("Mean annual Temperature, degC",side=1,outer=TRUE,line=0.7)
 legend("bottomleft",legend=c("all regrowth samples","FIN","BIA","BCI"),fill=c(1,get_biome_colour("FIN"),get_biome_colour("BIA"),get_biome_colour("BCI")))
 dev.off()
 
 ```
-
-
-

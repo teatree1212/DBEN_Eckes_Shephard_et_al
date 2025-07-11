@@ -26,8 +26,8 @@ base.path <- "./"
 
 Figs_dir <- paste0(base.path,"/../Figs/")
 
-source(paste0(base.path,"/Format-DBEN_Eckes-Shephard_et_al2025.R"))
-source(paste0(base.path,"/DBEN_helper_functions_clean.R"))
+source(here::here("Format-DBEN_Eckes-Shephard_et_al2025.R"))
+source(here::here("DBEN_helper_functions.R"))
 
 obs.path <-paste0(base.path,"/../observations/2_processed/")
 
@@ -45,7 +45,7 @@ only used to create table for supplementary materials in word-document format. T
     
 ```{r Table_S11_30_year_summary_stats, include=TRUE}
 
-load("../model_outputs/all_models_30year_summary_stats.RData")
+load(here::here("model_outputs", "all_models_30year_summary_stats.RData"))
 
 options(knitr.kable.NA = "-") 
 knitr::kable(FULL,caption = "Forest Carbon and dynamics variables summarised across the first 30 years of regrowth and equilibrium. Aboveground woody carbon (AGcwood, KgC m2) after 30 years of disturbance recovery, and at equilibrium, by model and site. WBgrowth fluxes and cmort rates (%) minimum and maximum rates within the first 30 years, and the minimum and maximum across models across these years. No model output marked by -", digits=2, cex=0.3)
@@ -72,7 +72,6 @@ eq_values_BIA$lower  <- c(200, 300 ,  150, 320 ,  320  , 600 ,700 ,240 ,  500)
 eq_values_BIA$upper  <- c(420, 450 , 320, 450,  450,  900, 810, 450 , 530)
 eq_values_BIA$model  <- models_avail
 
-
 eq_values_BCI        <- data.frame(lower=rep(NA,9))
 eq_values_BCI$lower  <- c(150, 250,  150, 320 ,  320  , 600, 500 ,  100  , 500) #LSM_DVM_comp$BCI$lower[1:lgth] # LPJG: 420 CABLE-POP: 1
 eq_values_BCI$upper  <- c(420 ,450 , 320 ,450 , 450 , 900 ,810 , 450,  530) #LSM_DVM_comp$BCI$upper[1:lgth]# LPJG: 864 CABLE-POP: 30
@@ -81,7 +80,6 @@ eq_values_BCI$model  <- models_avail
 eq_values <- list(eq_values_FIN,eq_values_BIA,eq_values_BCI)
 names(eq_values) <- sites
 
-#####################
 #for manuscript:
 eq_values_FIN$site <- "FIN"
 eq_values_BIA$site <- "BIA"
@@ -91,8 +89,6 @@ eq_values_table <- rbind(eq_values_FIN,eq_values_BIA,eq_values_BCI)
 knitr::kable(eq_values_table[order(eq_values_table$model),], caption="Upper and lower simulation year that make up the period from which each model is considered in equilibrium. Some models were run for a longer timeperiod than the prescribed 450 years in order to achieve a mature forest in equilibrium state.", col.names = NULL) 
 
 ```
-
-
 
 ```{r Table_S8_Supplementary_Materials_benchmarking_self_thinning,eval=TRUE}
 
@@ -106,7 +102,6 @@ knitr::kable(eq_values_table[order(eq_values_table$model),], caption="Upper and 
 
 #now, to the same but plot all models in one plot:
 #pdf(file=paste0(Figs_dir,simdate,"/Supplementary_materials_4_Benchmark_self_thinning_all_models_point_selection_methods_3plots.pdf"))
-
 
 par(mfrow=c(4,3))
 xlim_set = c(0,4)
@@ -129,20 +124,16 @@ xmax = 410-33 # only do analysis on the original simulation length. Longer simul
 
 #data frame where I collect the manually adjusted upper and lower boundary of the indexes to derive the self-thinning line.
 
-
 manual_adjustment = data.frame(models_avail =rep(x = models_avail,each=3), site = rep(sites,length(models_avail)))
 manual_adjustment$upper <- NA
 manual_adjustment$lower <- NA
 manual_adjustment_empty <- manual_adjustment
-
 manual_adjustment$mort_rate_name <- NA
 manual_adjustment$identification_method <- NA
-
 
 #EDv3
 
 adjust_EDv3=FALSE
-
 
  manual_adjustment[which(manual_adjustment$models_avail == "EDv3"
                           & manual_adjustment$site == "BCI"),]$upper <- as.numeric(55)#as.numeric(467) # period with peak nstem numbers
@@ -166,8 +157,6 @@ if(isTRUE(adjust_EDv3)){
                           & manual_adjustment$site == "FIN"),]$identification_method <- "4"
 
 }
-
-
 
 #ORCHIDEE
   mansel=FALSE
@@ -193,7 +182,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "ORCHIDEE"
                         & manual_adjustment$site == "BCI"),]$identification_method <- "4" # manual adjustment
 }
 
-
 #SEIB-DGVM
 
 #FIN: 50:80
@@ -212,6 +200,7 @@ manual_adjustment[which(manual_adjustment$models_avail == "SEIB-DGVM"
                         & manual_adjustment$site == "FIN"),]$lower <- as.numeric(50) ##32
 manual_adjustment[which(manual_adjustment$models_avail == "SEIB-DGVM"
                         & manual_adjustment$site == "FIN"),]$identification_method <- "4" # manual adjustment
+
 #SEIB-DGVM
 manual_adjustment[which(manual_adjustment$models_avail == "SEIB-DGVM"
                         & manual_adjustment$site == "BIA"),]$upper <- as.numeric(150) # 150# upper boundary 231
@@ -226,7 +215,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "FATES"
 manual_adjustment[which(manual_adjustment$models_avail == "FATES"
                         & manual_adjustment$site == "FIN"),]$lower <- as.numeric(115) #32
 
-
 #JULES-RED
 #manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_adjustment$site == "FIN"),]$lower <- as.numeric(105)
 #manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_adjustment$site == "FIN"),]$upper <- as.numeric(200)
@@ -240,7 +228,6 @@ manual_adjustment[which(manual_adjustment$models_avail == "JULES-RED" & manual_a
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$lower <- as.numeric(190)
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$upper <- as.numeric(220)
 #manual_adjustment[which(manual_adjustment$models_avail == "BiomeEP" & manual_adjustment$site == "BIA"),]$identification_method <- "4" # manual adjustment
-
 
 for(site in sites){
 
@@ -302,7 +289,6 @@ for(site in sites){
 
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$identification_method <- "1"
       manual_adjustment[which(manual_adjustment$models_avail==model_name & manual_adjustment$site==site),]$mort_rate_name <- "cstarv"
-
 
     }else if(model_name =="CABLE-POP"){
       # we cannot separate this by sizeclass, which is a bit problematic, but maybe it works anywyas, to show the crowding mechanism.
@@ -422,7 +408,6 @@ for(site in sites){
     #add self-thinning line to graph
    # abline(lm(MODEL[,2] ~ MODEL[,1]),col= "blue" )
 
-
     #add information on whether the data points were  manually adjusted before creating the self-thinning line:
     if(is.na(manual_adjustment[which(manual_adjustment$models_avail == model_name
                            & manual_adjustment$site == site),]$identification_method)){
@@ -432,7 +417,6 @@ for(site in sites){
     n = manual_adjustment[which(manual_adjustment$models_avail == model_name & manual_adjustment$site == site),]$identification_method
     #report on slope and method used to derive slope:
    # mtext(side=3,line=-4, paste("method",n))
-
 
     if(!is.null(MODEL_mort)){
       # fit the timeseries with the selected period:
@@ -487,7 +471,6 @@ for(site in sites){
 
     }
 
-
     # plot the timeseries with the selected period:
     idx <- MODEL_plot$time
 
@@ -527,14 +510,12 @@ for(site in sites){
 #mean(report_self_thinning[which(report_self_thinning$site=="FIN"),]$lower)
 #52.77778
 
-
 #in-text reporting of self-thinning durations:
 #max(report_self_thinning[which(report_self_thinning$site=="BCI"& report_self_thinning$Model!="ORCHIDEE"),]$duration)
 
 #max(report_self_thinning[which(report_self_thinning$site=="BIA"& report_self_thinning$Model!="ORCHIDEE"),]$duration)
 
 #max(report_self_thinning[which(report_self_thinning$site=="FIN" & report_self_thinning$Model!="ORCHIDEE"),]$duration)
-
 
 report_self_thinning <-merge(manual_adjustment,collect_final,by.x=c("models_avail","site"), by.y=c("Mname","site"))
 report_self_thinning$co2 <- NULL

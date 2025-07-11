@@ -15,6 +15,7 @@ library(maptools) # no available after R 4.2.0. Alternative: sf
 library(zoo) # datetime  handling of observations
 library(gridExtra) # for plotting multiple ggplot objects beside each other
 library(psych) # for scatter-history plotting for mort and wbgrowth rates
+library(here)
 #source the format metadata for DBEN project to integrate with DGVMTools:
 #source("Format-DBEN_paper1.R")
 # conversion helpers:
