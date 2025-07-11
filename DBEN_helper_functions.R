@@ -1,27 +1,25 @@
-#functions and helper settings used within DBEN:
+# this script includes the functions and helper settings used within DBEN:
 
-
-#when run from within scripts - relative paths for download from github:
-#base.path <- "../"
-
+# when run from within scripts - relative paths for download from github:
+# base.path <- "../"
 
 models_avail = c("JULES-RED","FATES","ORCHIDEE","LPJ-GUESS","CABLE-POP","BiomeEP","BiomeE-Standalone","SEIB-DGVM","EDv3")
 
 #knitr::opts_chunk$set(echo = TRUE)
 library(ncdf4)
+#devtools::install_github("MagicForrest/DGVMTools", ref = "master", dependencies = TRUE, build_opts = c("--no-resave-data", "--no-manual"), build_vignettes = TRUE, force=T)
 library(DGVMTools)
 library(dplyr)
 library(maps)
-library(maptools)
+library(maptools) # no available after R 4.2.0. Alternative: sf
 library(zoo) # datetime  handling of observations
 library(gridExtra) # for plotting multiple ggplot objects beside each other
 library(psych) # for scatter-history plotting for mort and wbgrowth rates
 #source the format metadata for DBEN project to integrate with DGVMTools:
 #source("Format-DBEN_paper1.R")
-#conversion helpers:
+# conversion helpers:
 year_to_seconds = 60*60*24*365
 seconds_to_year = 1/(60*60*24*365)
-
 create_figs = TRUE
 
 # vector of all variables simulated for DBEN 
@@ -30,7 +28,7 @@ variables <-  c("cveg","cwood","cwood_size","nstem_size","lai","CA","BA","height
 sites = c("FIN","BIA","BCI")
 
 basepath = "../model_outputs/"
-## set all file directories here:
+# set all file directories here:
 file.dir.julesred <- paste0(basepath,"JULES-RED/")
 file.dir.fates    <- paste0(basepath,"FATES/")# we are at v5
 file.dir.lpjguess <- paste0(basepath,"LPJGUESS/2_processed/")#long_runs/")
@@ -43,19 +41,16 @@ file.dir.seibdgvm <- paste0(basepath,"SEIB-DGVM/")
 file.dir.EDv3     <- paste0(basepath,"EDv3/")
 file.dir.orchidee <- paste0(basepath,"ORCHIDEE/")
 
-
 abcdfeghijkl <- function(model_name){
   idx <- which(models_avail==model_name)
   abcdfeghijkl <- c("a)", "b)" ,"c)","d)", "e)" ,"f)","g)", "h)" ,"i)","j)", "k)" ,"l)")
   return(abcdfeghijkl[idx])
 }
 
-
-
 get_output_LPJGUESS <- function(site,run,var,file.dir,co2_levels){
   model_name = "LPJGUESS"
   
-  #to make backwards compatible:
+  # to make backwards compatible:
   if(co2_levels == "412ppm" | co2_levels == "PS_412ppm/" ){
     co2_levels = "PS_412ppm/"
   }else if(co2_levels == "562ppm" | co2_levels == "PS_562ppm/" ){
@@ -102,6 +97,7 @@ get_output_LPJGUESS <- function(site,run,var,file.dir,co2_levels){
   
   return(var.to.plot)
 }
+
 get_output_BiomeEP <- function(site,run,var,file.dir,co2_levels){
   model_name = "BiomeEP"
   #site = c("Fi1")
@@ -117,14 +113,13 @@ get_output_BiomeEP <- function(site,run,var,file.dir,co2_levels){
     cmort_var_quant ="cmort_size"
     stemmort_var_quant = "stemmort_size"
  
-  
   source.in <- defineSource(id = site,
                             dir = file.dir ,
                             format = DBEN,
                             name = paste(model_name, site,'-', run),
                             forcing.data = "cru_jra2.2")
   
-  #adress the fact that for filename with var = "cmort_size", the variable name within = "cmort"
+  # address the fact that for filename with var = "cmort_size", the variable name within = "cmort"
   if(var== "cmort_size"){
     var.to.plot <- getField_DBEN(source.in, 
                                  quant = get_quantity(cmort_var_quant),
@@ -151,12 +146,11 @@ get_output_BiomeEP <- function(site,run,var,file.dir,co2_levels){
                                  model_name = model_name)
   }
   
-  
   #[TODO] probably change unit later..
   if(var == "cmort" | var == "cmort_age" |
      var == "cmort_other" | var == "cmort_greff") {
-    #convert to -yr:
-    # var.to.plot <- change_unit_stoy(var.to.plot)
+    # convert to -yr:
+    #var.to.plot <- change_unit_stoy(var.to.plot)
   }
   
   if(var == "cmort_size" ){
@@ -164,7 +158,7 @@ get_output_BiomeEP <- function(site,run,var,file.dir,co2_levels){
   }
   
   if(var=="stemmort_size"|var =="stemmort"){ #Ensheng. 17.05.2023: The unit of "Stemmort" is n_stems per year per m2 (how many trees died in a year in one square meter of land. So it is very small.
-    #convert to -ha:
+    # convert to -ha:
     end <- dim(var.to.plot@data)[2]
     var.to.plot@data[,4:end] <- var.to.plot@data[,4:end] *10000 # m to ha
   }
@@ -203,6 +197,7 @@ get_output_BiomeE_standalone <- function(site,run,var,file.dir,co2_levels){
     #convert to -yr:
     var.to.plot <-change_unit_stoy(var.to.plot)
   }
+  
   if(var=="stemmort_size"){ #Ensheng. 17.05.2023: The unit of "Stemmort" is n_stems per year per m2 (how many trees died in a year in one square meter of land. So it is very small.
     #convert to -ha:
     end <- dim(var.to.plot@data)[2]
@@ -217,21 +212,26 @@ get_output_BiomeE_standalone <- function(site,run,var,file.dir,co2_levels){
     #WDgrow+ WDrepr  (new seedlings from reproduction)+ WDmgrt (migrated plants, once in year 31), just for traceability, that will be updated as WBgrowth, as that is what "Total wood growth" means for DBEN. 
     var.to.plot@quant = get_quantity("WBgrowth")
   }
+  
   if(var =="WDmortTot"){
     #WDmort+WDkill (killed trees because of low density)+WDdstb (removed by disturbance, year 31)
     var.to.plot@quant = get_quantity("cmort")
   }
+  
   return(var.to.plot)
 }
+
 get_output_CABLEPOP <- function(site,run,var,file.dir,co2_levels){
   model_name="CABLE-POP"
   # flexibly account for file naming:
   if(run == "0"){
     #benchmark run
     file.name = paste0(file.dir,co2_levels,"/",model_name,"_",var,"_P0_",site,".nc")
-  }else{ # sensitivity runs:
+  }
+  else{ # sensitivity runs:
     file.name = paste0(file.dir,co2_levels,"/",model_name,"_",var,"_PS_",site,"_",run,".nc")
   }
+  
   # set metadata 
   source.in <- defineSource(id = site,
                             dir = file.dir ,
@@ -244,10 +244,9 @@ get_output_CABLEPOP <- function(site,run,var,file.dir,co2_levels){
                                file.name = file.name,
                                model_name="CABLE-POP")
   
-  
   # c("cmort_crowd", "cmort_dist", "cmort_res")
   #[TODO] Juergen unit seems to be off by magnitudes, but if I multiply with year_to_seconds multiplier, t is fine. 
-  #Has this maybe been "converted" to year twice, and I have to roll back one conversion here?
+  # has this maybe been "converted" to year twice, and I have to roll back one conversion here?
   if(var == "cmort"| var == "cmort_crowd"| var == "cmort_dist" | var == "cmort_res" | var == "gpp" | var == "npp"){
     var.to.plot <- change_unit_stoy(var.to.plot)
   }
@@ -274,7 +273,6 @@ get_output_JULESRED <- function(site,run,var,file.dir,co2_levels){
   # split up size classes graph to make more readable.
   # create shared maximum y axis to make graphs more interpretable. maybe change back later  
   ymax <- max(var.to.plot@data$Total)
-  
   
   #[TODO] probably change unit later..
   if(var == "cmort" | var == "cmort_age" |
@@ -310,9 +308,6 @@ get_output_FATES <- function(site,run,var,file.dir,model_name,co2_levels ="412pp
                             name = paste(model_name, site,'-', run),
                             forcing.data = "cru_jra2.1")# different to the other models.
   
-  
-  
-  
   if(runFates =="p0"){
     if(var =="cveg_total"){
       #name in netcdf is cveg, but it differs from the cveg file. so updating the quantity after reading in :
@@ -322,7 +317,7 @@ get_output_FATES <- function(site,run,var,file.dir,model_name,co2_levels ="412pp
                                                       model_name,"_",var,"_",runFates,"_",siteFates,".nc"),
                                    model_name = model_name)
       var.to.plot@quant <- get_quantity("cveg_total")
-    }else if( var =="stemmort"){
+    } else if( var =="stemmort"){
       var.to.plot_under <- getField_DBEN(source.in, 
                                          quant = get_quantity(var),
                                          file.name = paste0(file.dir,co2_levels,"/",site,"/",runFates,"/",
@@ -338,7 +333,7 @@ get_output_FATES <- function(site,run,var,file.dir,model_name,co2_levels ="412pp
       var.to.plot  <- var.to.plot_under # "initalise" to keep metadata
       var.to.plot@data[,4:19]  <- var.to.plot_under@data[,4:19] + var.to.plot_over@data[,4:19] #combine # 06.06.2023 sizecalsses lost
       
-    }else{
+    } else{
         var.to.plot <- getField_DBEN(source.in, 
                                      quant = get_quantity(var),
                                      file.name = paste0(file.dir,co2_levels,"/",site,"/",runFates,"/",
@@ -365,18 +360,15 @@ get_output_FATES <- function(site,run,var,file.dir,model_name,co2_levels ="412pp
         var.to.plot  <- var.to.plot_under # "initalise" to keep metadata
         var.to.plot@data[,4:19]  <- var.to.plot_under@data[,4:19] + var.to.plot_over@data[,4:19] #combine # 06.06.2023 sizecalsses lost
         
-        
-      }else{
+      } else{
         var.to.plot <- getField_DBEN(source.in, 
                                      quant = get_quantity(var),
                                      file.name = paste0(file.dir,co2_levels,"/",site,"/",runFates,"/",
                                                         model_name,"_",var,"_",runFates,"_",siteFates,"_",srun,".nc"),
                                      model_name = model_name)
         
-        
       } # done reading in variables
    }
-  
   
   # some unit adjustments
   if(var =="npp"| var == "gpp"){
@@ -396,6 +388,7 @@ get_output_FATES <- function(site,run,var,file.dir,model_name,co2_levels ="412pp
   
   return(var.to.plot)
 }
+
 get_output_EDv3 <- function(site,run,var_in,file.dir,co2_levels = "412ppm"){
   model_name = "EDv3"
   
@@ -408,9 +401,8 @@ get_output_EDv3 <- function(site,run,var_in,file.dir,co2_levels = "412ppm"){
     #print(file.dir)
   }
   
-  
   if(run == "P0"){
-    #benchmark run
+    # benchmark run
     file.name = paste0(file.dir,co2_levels,"/",model_name,"_",var_in,"_P0_",site,".nc")
   }else{ # sensitivity runs:
     file.name = paste0(file.dir,co2_levels,"/",model_name,"_",var_in,"_PS_",site,"_",run,".nc")
@@ -424,21 +416,16 @@ get_output_EDv3 <- function(site,run,var_in,file.dir,co2_levels = "412ppm"){
                             name = paste(model_name, site,'-', run),
                             forcing.data = "cru_jra2.2")
   
-  
   var.to.plot <- getField_DBEN(source.in, 
                                quant = get_quantity(var_in),
                                file.name = file.name,
                                model_name = model_name)
-  
-  
-  
+
   return(var.to.plot)
   
 }
 get_output_SEIBDGVM <- function(site,run,var,file.dir,co2_levels = "412ppm"){
   model_name = "seib"
-  
-  
   
   if(run == "P0"){
     #benchmark run
@@ -447,8 +434,6 @@ get_output_SEIBDGVM <- function(site,run,var,file.dir,co2_levels = "412ppm"){
     file.name = paste0(file.dir,co2_levels,"/",model_name,"_",var,"_",run,"_",site,".csv")
   }
   
-  
-  
   # set metadata 
   source.in <- defineSource(id = site,
                             dir = file.dir ,
@@ -456,19 +441,17 @@ get_output_SEIBDGVM <- function(site,run,var,file.dir,co2_levels = "412ppm"){
                             name = paste("SEIB-DGVM", site,'-', run),
                             forcing.data = "cru_jra2.2")
   
-  
   var.to.plot <- getField_DBEN(source.in, 
                                quant = get_quantity(var),
                                file.name = file.name,
                                model_name = model_name)
-  #reupdate metadata:
   
+  #reupdate metadata:
   
   if(var == "cmort" | var == "cmort_age" |
      var == "cmort_other" | var == "cmort_greff" ) {
     var.to.plot@quant@units <- "kgC m-2 yr-1"
   }
-  
   
   if(var =="gpp"| var =="npp"){
     var.to.plot <- change_unit_stoy(var.to.plot)
@@ -479,7 +462,6 @@ get_output_SEIBDGVM <- function(site,run,var,file.dir,co2_levels = "412ppm"){
 
 get_output_ORCHIDEE <- function(site,run,var,file.dir,co2_levels = "412ppm"){
   model_name="ORCHIDEE"
-  
   
   if(run == "P0"){
     #benchmark run
@@ -500,8 +482,6 @@ get_output_ORCHIDEE <- function(site,run,var,file.dir,co2_levels = "412ppm"){
                                file.name = file.name,
                                model_name = model_name)
   
-  
-  
   #[TODO] probably change unit later..
   #if(var == "cmort"){
   #  #convert to -yr:
@@ -510,8 +490,6 @@ get_output_ORCHIDEE <- function(site,run,var,file.dir,co2_levels = "412ppm"){
   
   return(var.to.plot)
 }
-
-
 
 #temporary function, to change units for some fluxes where needed
 change_unit_stoy <- function(var_to_plot){
@@ -523,7 +501,6 @@ change_unit_stoy <- function(var_to_plot){
   var_to_plot@quant@units <- "kgC m-2 yr-1"
   return(var_to_plot)
 }
-
 
 ### helper function for Sensitivity analysis ( disturbance analysis) plotting:
 #collect_ambient_x =  data frame containing xaxis-values for ambient simulation output for variable of choice
@@ -557,15 +534,14 @@ plot_SA_output <- function(collect_ambient_x,collect_ambient_y,collect_elevated_
         col=col,lty=2)
 }
 
-
 # not all naming conventions were adhered to. 
-# This function is used to adress this:
+# this function is used to adress this:
 # map individual model outputs to D-BEN run number, 
 # function is used by get_model_output to automatise 
 # the calling of the same runs across models.
 get_model_run_number <- function(model_name,protocol_run_name){
   
-  #create dataframe that collects all models and the run number/name used:
+  # create dataframe that collects all models and the run number/name used:
   df = data.frame(Mnames = models_avail)
   tmp <- as.data.frame(matrix(NA,ncol=8,nrow= length(models_avail)))
   names(tmp) <-  c("P0","P1","P2","P3","P4","P5","P6","P7")
@@ -585,14 +561,14 @@ get_model_run_number <- function(model_name,protocol_run_name){
   df[df$Mnames =="ORCHIDEE",2:9]        <- c("P0","P0","P0","P0","P0","P0","P0","P0") # [TODO] 11.09.2023 SEnsitivity runs not yet incorporates in output post-processing, only allow P0
   
   # FATES' model output calling function already is set up in a way that it works with default run names.
-  #[TODO] re-naming of biomeEP scenarios once PS1 is run.
+  # [TODO] re-naming of biomeEP scenarios once PS1 is run.
   
-  #to deal with different file naming conventions:
+  # to deal with different file naming conventions:
   runs = c("P0","P1","P2","P3","P4","P5","P6","P7")
   runs_biomeEP <- c("P0","P0","PS1","PS2","PS3","PS4","PS5","PS6")
   
-  #Disturbance: stand-replacing (resetting to initial conditions) and stochastic with mean frequency
-  #of:0.01, 0.02, 0.04, 0.08, 0.20, 0.40 (corresponding to the file names: _01, _02, _04, _08, _20, _40)
+  # disturbance: stand-replacing (resetting to initial conditions) and stochastic with mean frequency
+  # of:0.01, 0.02, 0.04, 0.08, 0.20, 0.40 (corresponding to the file names: _01, _02, _04, _08, _20, _40)
   runs_biomeES <- c("00","01", "02", "04", "08", "20", "40","08")
   runs_julesred = c("1","2","3","4","5","6",NA)
   runs_cablepop = c("00","1","2","3","4","5","6","7")
@@ -602,11 +578,8 @@ get_model_run_number <- function(model_name,protocol_run_name){
   return(df[df$Mnames==model_name,protocol_run_name])
 }
 
-
-##
 #load selected model's output
 get_model_output <- function(var,site,run, model_name,co2_levels){
-  
   
   ########################LPJGUESS####################################
   if(model_name =="LPJ-GUESS"){
@@ -621,7 +594,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
     model_out <- get_output_LPJGUESS(site, run = get_model_run_number(model_name,run), 
                                      var = var, file.dir = file.dir.lpjguess, co2_levels = co2_levels)
     
-    
     ## print(model_name)
   }
   
@@ -632,9 +604,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
                                      var = var,file.dir.fates,co2_levels = co2_levels)
     # print(model_name)
   }
-  
-  
-  
   
   ########################BIOME_EP####################################
   if(model_name == "BiomeEP"){
@@ -665,8 +634,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
     # print(model_name)
   }
   ########################CABLEPOP####################################
-  
-  
   if(model_name == "CABLE-POP"){
     if(co2_levels == "412ppm"){
       co2_levels = "PS_412ppm"
@@ -698,9 +665,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
     # print(model_name)
   }
   
-  
-  
-  
   ########################JULESRED####################################
   if(model_name =="JULES-RED"){
     
@@ -715,11 +679,8 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
     # print(model_name)
   }
   
-  
   ########################EDv3####################################
   if(model_name =="EDv3"){
-    
-    
     
     # account for EDv3 not reporting a cmort variable:
     if(var == "cmort"){
@@ -752,7 +713,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
     # print(model_name)
   }
   
-  
   ########################SEIB-DGVM####################################
   if(model_name =="SEIB-DGVM"){
     # print(co2_levels)
@@ -760,7 +720,6 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
                                         var = var,file.dir.seibdgvm,co2_levels = co2_levels)
     # print(model_name)
   }
-  
   
   ########################ORCHIDEE####################################
   if(model_name == "ORCHIDEE"){
@@ -782,13 +741,11 @@ get_model_output <- function(var,site,run, model_name,co2_levels){
   
 }
 
-
-#aesthetics for consistent plotting
-#x allowed to be biome name or site name, for more convenient use
+# aesthetics for consistent plotting
+# x allowed to be biome name or site name, for more convenient use
 get_biome_colour <- function(x, black_only=FALSE){
   
-  
-  #preparation:
+  # preparation:
   biomes  <- c("Boreal","Boreal","Temperate","Tropics")
   sites    <- c("FIN","FI", "BIA" ,"BCI")
   cols   <- c("dark green","dark green","light green","brown")
@@ -846,7 +803,6 @@ get_model_pch <- function(model){
 #stand-structure related shared objects:
 sc <- c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" ,  "<90" ,  "<100",  "<150" , "<200",  ">=200")
 
-
 #to deal with different file naming conventions:
 runs = c("P1","P2","P3","P4","P5","P6","P7")
 runs_biomeEP <- c("P0","PS1","PS2","PS3","PS4","PS5","PS6")
@@ -876,44 +832,40 @@ stand_structure_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site,t
                                        var_in = var, ylim_ext = NULL, stand_structure_obs_in = stand_structure_obs,  
                                        run="P1", plot_site_name=TRUE, plot_year = NULL){
   
+  # define benchmark run:  must be done here, and then sent through get_model_run_number, 
+  # because the models call their runs differently. the get_model_run_number function maps it back to the relevant D-BEN run.
   
-  #define benchmark run:  must be done here, and then sent through get_model_run_number, 
-  #because the models call their runs differently. the get_model_run_number function maps it back to the relevant D-BEN run.
-  
-  #account for some data not having dbh-classes, but models must be plotted for it. here, retrieve complete set of dbh-classes:
+  # account for some data not having dbh-classes, but models must be plotted for it. here, retrieve complete set of dbh-classes:
   dbh_classes_plot <- stand_structure_obs_in[which(stand_structure_obs_in$site == "BCI"),]$dbh_classes_num
   
   site=site_in
   
-  
-  #call each model: 
+  # call each model: 
   model_out <- get_model_output(site=site, run= run, var = var_in, model_name=model_name, co2_levels = "412ppm")
   
-  
-  #If no year  is given for plotting of the stand structure,
+  # if no year  is given for plotting of the stand structure,
   # use the last simulation year:
   if(is.null(plot_year)){
     plot_year = max(model_out@data$Year)
   }
   
   if(model_name=="JULES-RED"){
-    #JULES-RED doesn't have a sizeclass <1, so adressing this here, that the plotting works:
-    #add sizeclass colummn
+    # JULES-RED doesn't have a sizeclass <1, so adressing this here, that the plotting works:
+    # add sizeclass colummn
     model_out@data$`<1` <- NA
-    #reorder dataframe:
+    # reorder dataframe:
     model_out@data <-  model_out@data[,c( "Year" , "Lat" ,  "Lon", "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" ,  "<90", "<100", "<150", "<200", ">=200" ,"Total")]
   }
   
-  
   ############### ############### ############### ############### ############### ############### 
   if(var_in == "nstem_size"){
-    ##plot models - nstem_size
+    # plot models - nstem_size
     
-    #subset of dbh- classes for plotting, because in the observations there are no more than that.
-    #[TODO]would ideally subset with this vector of column names, but it somehow doesnt, work. doing this manually for now, but ther emust be a better solution..
+    # subset of dbh- classes for plotting, because in the observations there are no more than that.
+    # [TODO]would ideally subset with this vector of column names, but it somehow doesnt, work. doing this manually for now, but ther emust be a better solution..
     dbh_classes_sel <-  c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" ,  "<90", "<100", "<150", "<200", ">=200" )
     
-    #make ylims flexible, or prescribe from external:
+    # make ylims flexible, or prescribe from external:
     max_model_output <- max(model_out@data[,
                                            c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" , 
                                               "<90" ,  "<100",  "<150" , "<200",  ">=200")])
@@ -939,14 +891,11 @@ stand_structure_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site,t
         ylim_set[ylim_set ==-Inf] <- -2
       }
       
-      
-      
       plot(dbh_classes_plot,
            log(model_out@data[model_out@data$Year == plot_year, 
                               c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" , 
                                  "<90" ,  "<100",  "<150" , "<200",  ">=200")]), 
            ylim = ylim_set ,col= get_model_colour(model_name),pch=16,cex=1,ylab="",type="p") 
-      
       
       points(stand_structure_obs_in[which(stand_structure_obs_in$site == site),]$dbh_classes_num, 
              log(stand_structure_obs_in[which(stand_structure_obs_in$site == site),]$nstem_size_ha.1),  
@@ -986,27 +935,21 @@ stand_structure_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site,t
       mtext(side=2,"nstem_size (nstem)",line=2,outer=FALSE)
     }#stem not logged
     
-    
   }
-  
-  
-  
   
   ############### ############### ############### ############### 
   if(var_in =="cwood_size"){
     # !Note, applying a 0.75 factor to arrive at AGcwood_size; except for ORCHIDEE
     if(model_name=="ORCHIDEE"){roots_off=1.0}else{roots_off = 0.75}
     
-    
     # cwood plots
     max_model_output <- max(model_out@data[, c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" , 
                                                 "<90" ,  "<100",  "<150" , "<200",  ">=200")]*roots_off)
     max_obs <- max( na.omit(stand_structure_obs_in[,c("AGB_size_kgCm.2","AGB_size_upper_kgCm.2","AGB_size_lower_kgCm.2")]) )
     
-    #convert to AGcwood:
+    # convert to AGcwood:
     
-    
-    #check if external ylims are present or not:
+    # check if external ylims are present or not:
     if(is.null(ylim_ext)){ # not present, obtain ylim_set from within
       ylim_set = c(0,max(max_obs,max_model_output) + max(max_obs,max_model_output)*0.1) 
     }else{
@@ -1042,9 +985,8 @@ stand_structure_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site,t
 # var the DBEN variable that should be plotted.
 stand_structure <- function(model_name = "LPJ-GUESS",site_in = site,takelog =TRUE, run ="P1",var_in = "cwood_size", ylim_ext = NULL,co2_levels ="412ppm",add=FALSE,main_in = NULL){
   
-  
-  #define benchmark run:  must be done here, and then sent through get_model_run_number, 
-  #because the models call their runs differently. the get_model_run_number function maps it back to the relevant D-BEN run.
+  # define benchmark run:  must be done here, and then sent through get_model_run_number, 
+  # because the models call their runs differently. the get_model_run_number function maps it back to the relevant D-BEN run.
   
   testing=FALSE
   #call each model: 
@@ -1101,16 +1043,16 @@ stand_structure <- function(model_name = "LPJ-GUESS",site_in = site,takelog =TRU
     }
   }
   
-  
   ############### ############### ############### ############### ############### ############### 
   if(var_in == "nstem_size"){
-    ##plot models - nstem_size
+    # plot models - nstem_size
     
-    #subset of dbh- classes for plotting, because in the observations there are no more than that.
-    #[TODO]would ideally subset with this vector of column names, but it somehow doesnt, work. doing this manually for now, but ther emust be a better solution..
+    # subset of dbh- classes for plotting, because in the observations there are no more than that.
+    # [TODO]would ideally subset with this vector of column names, but it somehow doesnt, work. doing this manually for now, but ther emust be a better solution..
     dbh_classes_sel <-  c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" ,  "<90", "<100", "<150", "<200", ">=200" )
     dbh_classes_num <- c(1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,210)
-    #make ylims flexible, or prescribe from external:
+    
+    # make ylims flexible, or prescribe from external:
     max_model_output <- max(model_out@data[,
                                            c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" , 
                                               "<90" ,  "<100",  "<150" , "<200",  ">=200")],na.rm = TRUE)
@@ -1118,14 +1060,14 @@ stand_structure <- function(model_name = "LPJ-GUESS",site_in = site,takelog =TRU
                                             c( "<1" ,   "<5" ,   "<10", "<15",  "<20" ,  "<30",   "<40"  , "<50" ,  "<60" ,  "<70" ,  "<80" , 
                                                "<90" ,  "<100",  "<150" , "<200",  ">=200")],na.rm = TRUE)
     
-    #check if external ylims are present or not:
+    # check if external ylims are present or not:
     if(is.null(ylim_ext)){ # not present, obtain ylim_set from within
       ylim_set = c(min(min_model_output,na.rm = TRUE),max(max_model_output,na.rm = TRUE))
     }else{
       ylim_set = ylim_ext # present. pass external ylims to ylim_set
     }
     
-    #if nstem should be logged:
+    # if nstem should be logged:
     if(takelog ==TRUE){
       
       if(is.null(ylim_ext)){ # not present, obtain ylim_set from within
@@ -1163,11 +1105,7 @@ stand_structure <- function(model_name = "LPJ-GUESS",site_in = site,takelog =TRU
       mtext(side=2,"nstem_size (nstem)",line=2,outer=FALSE)
     }#stem not logged
     
-    
   }
-  
-  
-  
   
   ############### ############### ############### ############### 
   if(var_in =="cwood_size"){
@@ -1205,29 +1143,24 @@ stand_structure <- function(model_name = "LPJ-GUESS",site_in = site,takelog =TRU
   
 }
 
-
 # function to plot a single models' regrowth dynamics alongside regrowth obs and equilibrium dynamics obs.
 regrowth_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site, var_in = var,  regrowth_obs_in = regrowth_obs, eq_dyn_obs_in = eq_dyn_obs){
   
-  
-  #define benchmark run:  must be done here, and then sent through get_model_run_number, 
-  #because the models call their runs differently. the get_model_run_number function (within get_model_output()) maps it back to the relevant D-BEN run.
+  # define benchmark run:  must be done here, and then sent through get_model_run_number, 
+  # because the models call their runs differently. the get_model_run_number function (within get_model_output()) maps it back to the relevant D-BEN run.
   run="P0"
   
-  
-  #call each model: 
+  # call each model: 
   model_out <- get_model_output(site=site_in, run= run, var = var_in, model_name=model_name, co2_levels = "412ppm")
   
-  
-  #plot model:
+  # plot model:
   last_sim_year = max(model_out@data$Year)
   plot(1:dim(model_out@data)[1], model_out@data$Total, type = "l", ylim = c(0,25),xlim = c(0,last_sim_year+10), col = get_model_colour(model_name),lwd=1.5)
   
-  
-  #prepare equilibroum dynamics observations for plotting within regrowth observations, at the end of the regrowth period, where a dynamic equilibrium has instilled by most models.
+  # prepare equilibroum dynamics observations for plotting within regrowth observations, at the end of the regrowth period, where a dynamic equilibrium has instilled by most models.
   eq_dyn_obs_in <- eq_dyn_obs_in %>% group_by(site) %>% mutate(new_plot_loc = last_sim_year + (Year - max(Year)))
   
-  #load and plot obs:
+  # load and plot obs:
   biome <- biomes[which(sites==site)]
   points(regrowth_obs_in[which(regrowth_obs_in$Biome == biome),]$bin_num +30, regrowth_obs_in[which(regrowth_obs_in$Biome == biome),]$AGcwood_kgCm2_med,type="p")
   arrows(regrowth_obs_in[which(regrowth_obs_in$Biome == biome),]$bin_num +30, regrowth_obs_in[which(regrowth_obs_in$Biome == biome),]$AGcwood_kgCm2_10, 
@@ -1235,7 +1168,7 @@ regrowth_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site, var_in 
          length = 0.00, angle = 90, code = 3,col = get_biome_colour(biome) )
   mtext(site,adj=0.95,side=3,line=-1.3)
   
-  #eq_dyn:
+  # eq_dyn:
   points(eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$new_plot_loc, eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$AGB_kgCm2)
   arrows(eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$new_plot_loc, eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$AGB_lower_kgCm2, 
          eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$new_plot_loc, eq_dyn_obs_in[which(eq_dyn_obs_in$site == site),]$AGB_upper_kgCm2, 
@@ -1244,15 +1177,15 @@ regrowth_benchmarks <- function(model_name = "LPJ-GUESS",site_in = site, var_in 
   
 }
 
-#convenience function that removes the firs 30 or so years from each model simulation, 
-#so that only the regrowth phase is considered in further analysis.
-#only for P0 runs!!!
-#some of these inputs could be automatically extracted from the metadata, but moving on..
+# convenience function that removes the firs 30 or so years from each model simulation, 
+# so that only the regrowth phase is considered in further analysis.
+# only for P0 runs!!!
+# some of these inputs could be automatically extracted from the metadata, but moving on..
 omit_equilibrium_phase <- function(data_object,model_name,site,selection_by_year=TRUE){
   
   if(selection_by_year){
     
-    # It seems that models have set their first regrowth year to different timings, so I am here manually omitting the equilibrium and disturbance year.
+    # it seems that models have set their first regrowth year to different timings, so I am here manually omitting the equilibrium and disturbance year.
     # for LPJG the first years will inevitably have 0 trees present until they establish, sometimes a 0 value will therefore cause trouble.
     if(model_name=="JULES-RED"){
       maxlength <- dim(data_object@data)[1]
@@ -1343,16 +1276,14 @@ omit_equilibrium_phase <- function(data_object,model_name,site,selection_by_year
   
   return(data_object)
   
-  
 }
 
-
-#can be used to calculate % Carbon and % individuals lost of total
+# can be used to calculate % Carbon and % individuals lost of total
 calc_mort_rate_andrusetal2021 <- function(Td,Tl,Pe=1){
-  #https://www-sciencedirect-com.ludwig.lub.lu.se/science/article/pii/S0048969721066808#bb0020
-  #In the period 1993–2013, we calculated the mortality rate (M) of each plot following the Eq. (1) as done by Andrus et al. (2021):
-  #M = (Td/Tl/Pe)*100
-  #where Td represents the number of trees that died (combined or by taxon) during time period Pe and Tl represents the number of living trees in the beginning of each year (or census period Pe).
+  # https://www-sciencedirect-com.ludwig.lub.lu.se/science/article/pii/S0048969721066808#bb0020
+  # In the period 1993–2013, we calculated the mortality rate (M) of each plot following the Eq. (1) as done by Andrus et al. (2021):
+  # M = (Td/Tl/Pe)*100
+  # where Td represents the number of trees that died (combined or by taxon) during time period Pe and Tl represents the number of living trees in the beginning of each year (or census period Pe).
   
   M = Td/Tl/Pe*100
   #account fo rthe fact that sometimes there are 0 trees, and must not divide by 0
@@ -1365,7 +1296,7 @@ calc_mort_rate_andrusetal2021 <- function(Td,Tl,Pe=1){
   return(M)
 }
 
-#Function to override "Total" column when fewer columns are selected to calculate the total.
+# function to override "Total" column when fewer columns are selected to calculate the total.
 # here we update "total" column, now that we have excluded the firest 3 sizeclasses. 
 update_total <- function(model_out_df){
   ns <- names(model_out_df)
@@ -1379,8 +1310,7 @@ update_total <- function(model_out_df){
   return(model_out_df)
 }
 
-
-#to remove the variability caused by the climate:
+# to remove the variability caused by the climate:
 create_rolling_means <- function(var_to_plot, k = 10, total_only = FALSE,align = "right", rm_firstX_years = NULL){
   # var-to-plot variable that needs plotting, coming from above read-in procedures
   # k = bin width ( default 10)
@@ -1416,7 +1346,6 @@ create_rolling_means <- function(var_to_plot, k = 10, total_only = FALSE,align =
     ls = ns[!ns %in% grep(paste0(omit_strings, collapse = "|"), ns, value = T)]
     var_to_plot@data <- update_total(var_to_plot@data)
     
-    
     #p <- print(plotTemporal(var_to_plot, layers = ls,sizes = rep(1,length(ls)),
     #                        size.by = "Layer")) # sizes -> lines made thicker
   }
@@ -1426,8 +1355,8 @@ create_rolling_means <- function(var_to_plot, k = 10, total_only = FALSE,align =
   
 }
 
-#to calculate a sensible mean landscape value for BiomeEP
-#deprecated
+# to calculate a sensible mean landscape value for BiomeEP
+# deprecated
 create_BiomeEP_means <- function(out){
   
   #because BiomeEP has regular disturbance intervals, I sample randomly across this to create the landscape mean,
@@ -1459,7 +1388,6 @@ create_BiomeEP_means <- function(out){
   } 
   #hopefully by now all values > 450 are taken care of
   
-  
   #create means and record them 
   means <- ssize <- rep(NA,length(lower))
   for(ii  in 1:length(lower)){
@@ -1472,15 +1400,15 @@ create_BiomeEP_means <- function(out){
   
 }
 
-##for self-thinning:
-#model_name and site only needed for plotting.
+# for self-thinning:
+# model_name and site only needed for plotting.
 identify_thinning_period <- function(agcwood,nstem,cmort=NULL,add_plot=FALSE,manadjust,cmort_plot=NULL,model_name, site){
   
   if(!is.na(manadjust$upper)){ #if thinning points were manually adjusted, just get them here now.
     # if they were not, then continue with the below options 
-    #( whith are to either where a thinning mortality helps to determine a useful set of thinning line indeces,
-    #or where the upper and lower boundary of a straight line determines something useful 
-    #( probably not, but was helpful for determining the manually adjusted indeces))
+    # (whith are to either where a thinning mortality helps to determine a useful set of thinning line indeces,
+    # or where the upper and lower boundary of a straight line determines something useful 
+    # (probably not, but was helpful for determining the manually adjusted indeces))
     
     df <- data.frame(indiv_mass = log10(agcwood/nstem),nstem = log10(nstem),dnstem= NA,thin=NA,time=seq(1:length(nstem)))
     
@@ -1492,7 +1420,6 @@ identify_thinning_period <- function(agcwood,nstem,cmort=NULL,add_plot=FALSE,man
       points(df[idx_lower:idx_upper,c("nstem","indiv_mass") ],col="red",ylim=ylim_set,xlim=xlim_set,cex=point_cex)
       #mtext("method 3)",side=1,line=-1)
     }
-    
     
   }else{
     if(!is.null(cmort)){# this means that the FATES LPJG, EDv3 or CABLEPOP model has been called. FATES in the tropics has a very strong slope that is not 
@@ -1567,8 +1494,6 @@ identify_thinning_period <- function(agcwood,nstem,cmort=NULL,add_plot=FALSE,man
       idx_upper <-  which(df$indiv_mass == max(df$indiv_mass,na.rm = TRUE))
       idx_lower <-  min(which(df$nstem == max(df$nstem,na.rm = TRUE))) # hack to account for some models having multiple values for this == test
       
-      
-      
       if(add_plot){
         
         # plot(df$nstem,df$indiv_mass)
@@ -1589,12 +1514,10 @@ identify_thinning_period <- function(agcwood,nstem,cmort=NULL,add_plot=FALSE,man
   
 }
 
-
-
 # rates a %rate object for stemmort and cmort, that can be used within the DGVMTools plotting capabilities:
-#mort_in  mortality flux in carbon or number of stems
+# mort_in  mortality flux in carbon or number of stems
 # total total amount of carbon or number of stems
-#var_in neeed to update metadata, either cmort_rate or stemmort_rate
+# var_in neeed to update metadata, either cmort_rate or stemmort_rate
 create_mort_rate <- function(mort_in,total,var_in){
   
   rate.final <- mort_in
@@ -1609,7 +1532,7 @@ create_mort_rate <- function(mort_in,total,var_in){
   
 }
 
-#calculate_ensemble_mean_median()
+# calculate_ensemble_mean_median()
 # used for deriving mean carbon mass turnover etc values at equilibrium, to show 
 # in the manuscript that demographic models increase in mortality, but not as much as the dummy model
 
@@ -1627,7 +1550,6 @@ calculate_ensemble_mean_median <- function(var,site, ns, n=60, run="P0"){
   
   #median_col is a column index needed to be removed when calculating the row (model ensemble) mean of a given timestep:
   median_col =length(ns)+1
-  
   
   #retrieve model output for ambient and elevated simulations
   for(model_name in ns){
@@ -1656,11 +1578,10 @@ calculate_ensemble_mean_median <- function(var,site, ns, n=60, run="P0"){
   return(list(collect_a,collect_e))
 }
 
-
-#plotting ggplots
-#convenience function for grid.arrange
-#passes back ggplot object for each model_output (input)
-#helper function to plot time-series
+# plotting ggplots
+# convenience function for grid.arrange
+# passes back ggplot object for each model_output (input)
+# helper function to plot time-series
 create_gobj <-function(model_out, y.lim = NULL,layers=NULL){
   if(!is.null(layers)){ # enhance title, so that the reader understands what layers are currently plotted
     p_out <- plotTemporal(model_out, legend.position = "none", layers=layers,title = paste(model_out@source@name," \n", layers), y.lim )
@@ -1671,8 +1592,6 @@ create_gobj <-function(model_out, y.lim = NULL,layers=NULL){
   
   return(p_out)
 }
-
-
 
 calculate_vegetation_percentage_fraction <- function(data){
   
@@ -1692,14 +1611,11 @@ calculate_vegetation_percentage_fraction <- function(data){
   return(data)
 }
 
-
-
 test_Wbudget_tolerance_threshold <- function(WBgrowth_in, cmort_in, cwood_in, model_name, site,time_range = 31:410) {
   # budget test across the whole simulation period from disturbance to the prescribed 450 years. 
   # equilibrium  may not be reached by then, and some models have run their models for longer. 
   # I use the mean of the last 30 years of the "official" simulations in this script.
   # must start from at least 32, because of (atmospheric) planting offset in ORCHIDEE
-  
   
   # Subset the data to the desired time range
   WBgrowth <- WBgrowth_in[time_range]
@@ -1743,7 +1659,6 @@ test_Wbudget_tolerance_threshold <- function(WBgrowth_in, cmort_in, cwood_in, mo
   # Test whether the deviation exceeds the tolerance threshold
   exceeds_tolerance <- deviation > tolerance_threshold
   
-  
   if (deviation > tolerance_threshold) {
     print(paste ("Cumulative Carbon deviation ",deviation ,"exceeds tolerance ",tolerance_threshold, "at ",site))
     plotstring =">"
@@ -1754,14 +1669,12 @@ test_Wbudget_tolerance_threshold <- function(WBgrowth_in, cmort_in, cwood_in, mo
     passfail="threshold PASSED:"
   }
   
-  
   mname = model_name
   if(model_name=="BiomeE-Standalone"){
     mname = "BiomeE"
   }
   plot(cwood,lwd=1.5, type="l",ylim=c(0,50), xlim=c(0,450),main =  paste(model_name,site),cex.main=2, yaxt="n", yaxt="n",xaxt="n")
   lines(flux_derived_cwood,lwd=1.5, col=get_model_colour(model_name))
-  
   
   #plotting aesthetics:
   axis(1,  line = -0.6, lwd = 0, cex.axis = 1.2)
@@ -1784,27 +1697,21 @@ test_Wbudget_tolerance_threshold <- function(WBgrowth_in, cmort_in, cwood_in, mo
     
   }
   
-  
 }
-
-
-
 
 test_Wbudget_tolerance_threshold_ORCHIDEE <- function(WBgrowth_in, cmort_in, cwood_in, model_name, site,time_range = 31:300) {
   
-  
-  # Subset the data to the desired time range
+  # subset the data to the desired time range
   WBgrowth <- WBgrowth_in[time_range]
   cmort <- cmort_in[time_range]
   cwood <- cwood_in[time_range]
   
   if(model_name=="ORCHIDEE"){
-    #We take carbon from the atmosphere on the first time step. This carbon is still there the second, third, ... time step so this should be implemented as a bias correction on the entire time series of the pool cwood (not on the flux WBgrowth).
+    # we take carbon from the atmosphere on the first time step. This carbon is still there the second, third, ... time step so this should be implemented as a bias correction on the entire time series of the pool cwood (not on the flux WBgrowth).
     #cwood[1] <- cwood - (cwood[1]-(WBgrowth[1]+cmort[1]))
     
     cwood <- cwood - (cwood[1]-(WBgrowth[1]-cmort[1]))
   }
-  
   
   # Calculate flux-derived cwood pool
   flux_derived_cwood <-   cumsum(WBgrowth-cmort)
@@ -1821,7 +1728,6 @@ test_Wbudget_tolerance_threshold_ORCHIDEE <- function(WBgrowth_in, cmort_in, cwo
   # Test whether the deviation exceeds the tolerance threshold
   exceeds_tolerance <- deviation > tolerance_threshold
   
-  
   if (deviation > tolerance_threshold) {
     print(paste ("Cumulative Carbon deviation ",deviation ,"exceeds tolerance ",tolerance_threshold, "at ",site))
     plotstring =">"
@@ -1831,8 +1737,6 @@ test_Wbudget_tolerance_threshold_ORCHIDEE <- function(WBgrowth_in, cmort_in, cwo
     plotstring ="<"
     passfail="threshold passed:"
   }
-  
-  
   
   plot(cwood, type="l",ylim=c(0,50), main =  "ORCHIDEE")
   lines(flux_derived_cwood, col=get_model_colour("ORCHIDEE"))
@@ -1844,15 +1748,13 @@ test_Wbudget_tolerance_threshold_ORCHIDEE <- function(WBgrowth_in, cmort_in, cwo
 }
 
 #####
-#useful for another analysis:
+# useful for another analysis:
 # create and plot model output summary stats for stand structure across a specified timeperiod:
-
 
 add_stand_structure_benchmarks_summary <- function(model_out,year_lower,year_upper){
   
   #subset for certain years:
   model_out@data <-  model_out@data %>%filter(Year >year_lower & Year < year_upper)
-  
   
   # Select the size class columns (excluding Year, Lat, Lon, and Total)
   size_class_cols <- colnames(model_out@data)[!(colnames(model_out@data) %in% c("Year", "Lat", "Lon", "Total"))]
@@ -1887,9 +1789,7 @@ add_stand_structure_benchmarks_summary <- function(model_out,year_lower,year_upp
                                "<90" ,  "<100",  "<150" , "<200",  ">=200")]),
          length = 0.00, angle = 90, code = 3)
   
-  
 }
-
 
 benchmark_WBgrowth_flux <- function(model_name = model_name,site = site, var= "WBgrowth",eq_values_in=eq_values){
   #eq_values_in list of dataframes with equilibrium /mature forest values, which are used for subsetting for this benchmark
@@ -1916,16 +1816,15 @@ benchmark_WBgrowth_flux <- function(model_name = model_name,site = site, var= "W
   lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower-30# omit early equilibrium phase ( first 30 years)
   upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper-30# omit early equilibrium phase
   
-  
-  #apply 30 year smoothing to reduce repeated years climate-effect on the variability:
+  # apply 30 year smoothing to reduce repeated years climate-effect on the variability:
   #WBgrowth_smoothed <- zoo::rollmean(WBgrowth@data$Total[lower:upper], k=30, align="left")
   
   #WBgrowth_out <- na.omit(WBgrowth_smoothed) # rm NAs that emerged from smoothing on the right side.
   
   # collect turnover values, used in boxplot
-  #collect_turnover_BCI[[model_name]] <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
+  # collect_turnover_BCI[[model_name]] <- cwood@data$Total[lower:upper]/cmort@data$Total[lower:upper]
   
-  #collect equilibrium content WBgrowth values
+  # collect equilibrium content WBgrowth values
   WBgrowth_out<- WBgrowth@data$Total[lower:upper]
   
   return(WBgrowth_out)
@@ -1936,22 +1835,19 @@ omit_sizeclasses_below10dbh <- function(input){
   output <- input 
   
   # model_name_in <- strsplit(input@source@name,split=" ")[[1]][1]
-  #  site_in <- strsplit(input@source@name,split=" ")[[1]][2]
+  # site_in <- strsplit(input@source@name,split=" ")[[1]][2]
   # run_in <- strsplit(input@source@name,split=" ")[[1]][4]
   
-  
-  #test for which sizeclasses exist for this output:
+  # test for which sizeclasses exist for this output:
   idx <- unlist(which( names(input@data) %in% c( "<1"  ,"<5" ,"<10" )))
   
-  #remove small sizeclasses that exist
+  # remove small sizeclasses that exist
   tmp <- input@data[,-idx, with = FALSE]
   # now that some sizeclasses are missing, the "total" column has to be updated
   out_tmp  <- update_total(tmp) 
   
-  #put the updated data-table back into @data object of model output:
+  # put the updated data-table back into @data object of model output:
   output@data <- out_tmp
   
   return(output)
 }
-
-
