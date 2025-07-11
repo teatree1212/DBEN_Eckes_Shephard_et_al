@@ -248,7 +248,7 @@ dev.off()
 
 ```{r Figure_1_regrowth_all_models_manuscript, eval=TRUE}
 
-png(filename = paste0(Figs_dir,simdate,"/Figure1_Benchmark_regrowth_allmodels.png"),width=180,height=240,units = "mm",res=360)
+png(filename = paste0(Figs_dir,simdate,"/Figure_1.png"),width=180,height=240,units = "mm",res=1000)
 #### regrowth curve + equilibrium biomass dynamics
 
 
@@ -566,7 +566,8 @@ knitr::kable(combined,caption = "Aboveground woody carbon (AGcwood, KgC m2) afte
 
 ```{r Figure4_benchmark_forest_structure_allmodels, eval=TRUE}
 
-png(filename=paste0(Figs_dir,simdate,"/Figure4_Benchmark_stand_structure_allmodels.png"),width=150,height=150,units = "mm",res=960)
+#png(filename=paste0(Figs_dir,simdate,"/Figure_4.png"),width=150,height=150,units = "mm",res=960)
+bitmap(file=paste0(Figs_dir,simdate,"/Figure_4.png"),width=80,height=80,units="mm",res =960,type="png16m")
 
 # stand structure: nstems and AGB (woody aboveground carbon), now called AGcwood
 
@@ -615,7 +616,7 @@ for(site in sites){
   ## add observations:
   points(stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
          log10(stand_structure_obs[which(stand_structure_obs$site == site),]$nstem_size_ha.1),
-         col= get_biome_colour(site,black_only=TRUE),lwd=2 )
+         col= get_biome_colour(site,black_only=TRUE),lwd=1 )
 
   ### Highlight the different methods of aggregating the benchmark data:
   # FIN + BIA : use all annual plot-level values of sizeclass data that is available.
@@ -627,7 +628,7 @@ for(site in sites){
            stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
            log10(stand_structure_obs[which(stand_structure_obs$site == site),]$nstem_size_upper_ha.1),
             length = 0.01, angle = 90, code = 3,
-            col= get_biome_colour(site,black_only=TRUE),lwd=1 )
+            col= get_biome_colour(site,black_only=TRUE),lwd=0.6 )
     }
   if(biome =="Tropics"){ # again, bootstrapping samples from 50 ha,plot, reporting median and 95% CI
      arrows(stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
@@ -635,7 +636,7 @@ for(site in sites){
            stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
            log10(stand_structure_obs[which(stand_structure_obs$site == site),]$nstem_size_upper_ha.1),
             length = 0.01, angle = 90, code = 3,
-            col= get_biome_colour(site,black_only=TRUE),lwd=1 ,lty=4)
+            col= get_biome_colour(site,black_only=TRUE),lwd=0.6 ,lty=4)
   }
   mtext(paste0(abc(site)," ",site),adj=0.95,side=3,line=-1.3,cex=0.7)
 
@@ -714,7 +715,7 @@ for(site in sites){
 
     points(stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,#[1:12],
            stand_structure_obs[which(stand_structure_obs$site == site),]$AGB_size_kgCm.2,#[1:12],
-           col= get_biome_colour(site,black_only=TRUE),lwd = 2)
+           col= get_biome_colour(site,black_only=TRUE),lwd = 1)
       ### Highlight the different methods of aggregating the benchmark data:
      # FIN + BIA : use all plot-level values of sizeclass data that is available. The sizeclasses are pooled across plots. Then percentile ranking is done
     biome <- biomes[which(sites==site)]
@@ -724,7 +725,7 @@ for(site in sites){
              stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
              stand_structure_obs[which(stand_structure_obs$site == site),]$AGB_size_upper_kgCm.2,#[1:12],
               length = 0.01, angle = 90, code = 3,
-              col= get_biome_colour(site,black_only=TRUE),lwd = 1)
+              col= get_biome_colour(site,black_only=TRUE),lwd = 0.6)
     }
     if(biome== "Tropics"){ #all values used, median used
     arrows(stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
@@ -732,7 +733,7 @@ for(site in sites){
            stand_structure_obs[which(stand_structure_obs$site == site),]$dbh_classes_num,
            stand_structure_obs[which(stand_structure_obs$site == site),]$AGB_size_upper_kgCm.2,#[1:12],
             length = 0.01, angle = 90, code = 3,
-            col= get_biome_colour(site,black_only=TRUE),lwd = 1 ,lty=4)}
+            col= get_biome_colour(site,black_only=TRUE),lwd = 0.6 ,lty=4)}
 
     mtext(paste0(def(site)," ",site),adj=0.95,side=3,line=-1.3,cex=0.7)
 
@@ -751,7 +752,7 @@ for(site in sites){
 }
 
 
-mtext(side=2,expression(AGcwood~(kgC~m^-2)),line=-24,outer=TRUE)
+mtext(side=2,expression(C["wood,AG"]~(kgC~m^-2)),line=-24,outer=TRUE)
 mtext(side=1,"dbh-class",line=1.5,outer=TRUE)
 
 
@@ -1355,7 +1356,7 @@ knitr::kable(report_self_thinning[,c("Model","site","lower","upper","duration","
 repeat the above, now for the main text, with data:
 ```{r Figure_3_benchmark_self_thinning}
 
-bitmap(file=paste0(Figs_dir,simdate,"/Figure3_self_thinning.png"),width=80,height=90,units="mm",res =1300,type="png16m")
+bitmap(file=paste0(Figs_dir,simdate,"/Figure_3.png"),width=80,height=90,units="mm",res =1300,type="png16m")
 
 
 #load benchmark data:
@@ -1649,113 +1650,25 @@ knitr::kable(table_out[,c("Mname","STLslope","site")],col.names=c("Model","STslo
 ## turnover and growth
 ```{r Figure_5_turnover_and_growth}
 
-png(file=paste0(Figs_dir,simdate,"/Figure5_eq_biomass_turnover_and_growth.png"),width=215,height=340,units="mm",res =300)
+#png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=215,height=340,units="mm",res =300)
+#png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1000)
+bitmap(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1300,type="png16m")
 
 eq_dyn_obs <- read.csv(paste0(obs.path,"/benchmark_eq_dynamics.csv"),head =TRUE)
 turnover_obs <- read.csv(paste0(obs.path,"/benchmark_turnover_times.csv"),head=TRUE) 
 WBgrowth_obs <- read.csv(paste0(obs.path,"/benchmark_WBgrowth.csv"),head=TRUE) 
 
-par(mfcol=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+#par(mfcol=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+par(mfcol=c(3,2),mar=c(0,3,0,0),oma=c(10,1,1,0))
 ####################################################################################
-# Add a separate mature forest AGcwood boxplot:
-
-for(site in sites){
-
-   if(site=="FIN"){
-    #par(fig=c(0.75,1,0.7,1), oma=c(2,1,0.5,0.1), mar=c(0,2,0,0),new=TRUE)
-     ylim=20
-  }
-  if(site =="BIA"){
-   # par(fig=c(0.75,1,0.40,0.70), oma=c(2,1,0.5,0.1), mar=c(0,2,0,0),new=TRUE)
-    ylim=20
-  }
-  if(site=="BCI"){
-    #par(fig=c(0.75,1,0.1,0.40), oma=c(2,1,0.5,0.1), mar=c(0,2,0,0),new=TRUE)
-    ylim=30
-  }
-
-
-  #prepare eq_dyn_obs for plotting on the same graph as regrowth:
-  eq_dyn_obs <- eq_dyn_obs %>% group_by(site) %>% mutate(new_plot_loc = last_sim_year + (Year - max(Year)))
-
-
-  #load and plot models, as boxplots:
-    lgth <- length(models_avail)
-   for(i in 1:lgth){
-    model_name <- models_avail[i] # calling models this like this, because I need an index for plotting:
-    model_out <-  get_model_output(site=site, run= run, var = var,model_name=model_name, co2_levels = "412ppm")
-
-    # extract the equilibrium phase, and use those years for the boxplot
-    lower <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$lower
-    upper <- eq_values[[site]][which(eq_values[[site]]$model==model_name),]$upper
-    eq <- model_out@data$Total[lower:upper]
-    # need to add dots, because the variablility is so low in som models,
-    #we don't see a colour, hence cannot distinguish between models.
-    med<- mean(eq)
-    if(model_name == models_avail[1]){
-      plot(1:(lgth+1), rep(NA,lgth+1), ylim= c(0,ylim), xaxt = "n",
-           yaxt = "n", yaxt = "n", xlab="", ylab="", xlim=c(1,lgth+1)) #prepare boxplot
-
-      boxplot(eq, at = i, col=get_model_colour(model_name), add=TRUE,yaxt = "n")
-      points(i, med, col=get_model_colour(model_name),cex=1.7,pch=16)
-
-    }else{
-      boxplot(eq, at = i, col=get_model_colour(model_name), add=TRUE,yaxt = "n")
-      points(i,med, col=get_model_colour(model_name), pch=16,cex=1.7)
-    }
-   }
-
-  #add mature forest observations:
-  # Percentile ranking of values within each age bin (FIN) with 10th and 90th upper percentile boundary.
-  # use all datapoints (regardless of upper or lower or median value) for the construction of the boxplot,
-  # Unlike for the supplementaries, we no longer plot annual timeseries values, but treat all years as a piece of evidence for "an equilibrium" range.
-
-    combined_data <- c(eq_dyn_obs[which(eq_dyn_obs$site == site),]$AGB_kgCm2,
-                       eq_dyn_obs[which(eq_dyn_obs$site == site),]$AGB_upper_kgCm2,
-                       eq_dyn_obs[which(eq_dyn_obs$site == site),]$AGB_lower_kgCm2)
-    bp_stats     <- boxplot(combined_data,plot= FALSE)
-    boxplot(at = 10,combined_data, add=TRUE,yaxt = "n")
-
-    AGB_lower <- bp_stats$stats[1] #lower whisker
-    AGB_upper <- bp_stats$stats[5] #upper whisker
-
-   # Define x coordinates for the polygon (spanning across the models)
-   x_coords <- c(0.5, length(models_avail) + 0.5, length(models_avail) + 0.5, 0.5)
-
-   # Define y coordinates for the polygon (from lower to upper bounds)
-   y_coords <- c(AGB_lower, AGB_lower, AGB_upper, AGB_upper)
-
-   # Add grey background polygon before plotting the boxplots
-   polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
-
-  if(site == "BCI"){
-   axis(2,  line = -0.6, lwd = 0, cex.axis = 0.9)
-   axis(2, lwd = 1, cex.axis = 0.9,labels = FALSE,tck=-0.02)
-   axis(1, tck = 0.01 ,cex.axis = 0.8,labels = FALSE,tck=0.01)
-
-
-   modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
-               ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
-   axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
-
-  }else{
-     axis(2,  line = -0.6, lwd = 0, cex.axis = 0.9)
-     axis(2, lwd = 1, cex.axis = 0.9,labels = FALSE,tck=-0.02)
-     #axis(1, tck = 0.01 ,cex.axis = 0.8,labels = FALSE,tck=0.01)
-  }
-  mtext(paste0(abc(site)),adj=0.97,side=3,line=-1.1,cex = 0.8)
-
-}
 
 
 ########### Barro Colorado Island:
 
-par(mfcol=c(3,2),mar=c(0,3,0,0),oma=c(10,1,1,0))
+
 #BCI - because there is no problem with leaves or with having to process Finland observations
 model_pch = 16
 #load observations:
-#obs.dir <- "/Users/annemarie/Documents/1_TreeMort/2_Analysis/3_analysis_demographic_model_intercomparison/Outputs/outputs_observations/2_processed/"
-
 
 
 ######################## FIN
@@ -1808,9 +1721,10 @@ polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
 #add to the boxplot the model output:
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_FIN[[model_name]],col = get_model_colour(model_name),ylim=c(0,1400), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+     boxplot(at=i,collect_turnover_FIN[[model_name]],col = get_model_colour(model_name),ylim=c(0,400), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
      i=i+1 # next model position
 }
+
 rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
 boxplot_md <- sapply(collect_turnover_FIN,median) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
 points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
@@ -1891,7 +1805,7 @@ polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
 #add to the boxplot the model output:
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_BIA[[model_name]],col = get_model_colour(model_name),ylim=c(0,100), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+     boxplot(at=i,collect_turnover_BIA[[model_name]],col = get_model_colour(model_name),ylim=c(0,160), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
      i=i+1 # next model position
 }
 rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
@@ -1911,7 +1825,7 @@ mtext(paste0(abc(site)),adj=0.01,side=3,line=-1.4)
 
 
 ######################## BCI
-site="BIA"
+site="BCI"
 BCI_Turnover <- turnover_obs[grepl("^BCI", turnover_obs$site), ]
 names(BCI_Turnover) <- c("site","year","biomass_alive","mort_flux","turnover_time","mortality_rate")
 var  = "cmort"
@@ -1948,7 +1862,7 @@ for(model_name in models_avail){
 #prepare boxplot
 #prepare grey shaded area:
 # Get lower and upper observational bounds for the specific site
-bp_stats <- boxplot(BCI_Turnover$turnover_time_yr,plot= FALSE)
+bp_stats <- boxplot(BCI_Turnover$turnover_time,plot= FALSE)
 lower <- bp_stats$stats[1] #lower whisker
 upper <- bp_stats$stats[5] #upper whisker
 
@@ -1968,7 +1882,7 @@ polygon(x_coords, y_coords, col=adjustcolor("grey", alpha.f=0.2), border=NA)
 #add to the boxplot the model output:
 i=1
 for(model_name in models_avail){
-     boxplot(at=i,collect_turnover_BCI[[model_name]],col = get_model_colour(model_name),ylim=c(0,100), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
+     boxplot(at=i,collect_turnover_BCI[[model_name]],col = get_model_colour(model_name),ylim=c(0,140), axes=FALSE, outcol = get_model_colour(model_name) ,add=TRUE)
      i=i+1 # next model position
 }
 
@@ -1976,7 +1890,7 @@ for(model_name in models_avail){
 rm_dot <- c(2,4,8) # some models have large boxplots, so don't need dots for identification by colour
 boxplot_md <- sapply(collect_turnover_BCI,median,na.rm=TRUE) # get boxplot horizontal line (= mean) for plotting of models that don't have a wide spread
 points(c(1:10)[-rm_dot],boxplot_md[-rm_dot] ,col = get_model_colour(models_avail[-rm_dot]),pch=model_pch,cex=1.4)
-boxplot(at=10,c(BCI_Turnover$turnover_time_yr),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
+boxplot(at=10,c(BCI_Turnover$turnover_time),ylim=c(0,1.7), axes=FALSE,add = TRUE,col="gray34") #observations
 #add number of samples:
 text(x = 10, y = upper + 0.1 * upper, labels = paste("n =", bp_stats$n[1]), cex = 0.8)
 
@@ -1995,7 +1909,7 @@ mtext(paste0(abc(site)),adj=0.01,side=3,line=-1.4)
 
  modelss <- c("JULES-RED"     ,    "FATES"       ,      "ORCHIDEE"         , "LPJ-GUESS"
                ,    "CABLE-POP"      ,   "BiomeEP"       ,    "BiomeE", "SEIB-DGVM"    ,     "EDv3" , "Observations")
-   axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=1.2)
+   axis(labels=modelss,side=1,at=1:(length(models_avail)+1),las=2,cex=0.8)
 
 mtext(side=2,"turnover time (years)",line=-1, outer =TRUE)
 
@@ -2193,8 +2107,8 @@ legend(legend = c("BiomeES","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS
                get_model_colour("EDv3"),
                get_model_colour("SEIB-DGVM"),
                get_model_colour("ORCHIDEE"),1),
-       "bottom",ncol=6,box.lwd = 0,inset = c(0,
-    0))
+       "bottomright",ncol=6,box.lwd = 0,inset = c(0,
+    0),cex=1)
 
 mtext(outer =TRUE, "FIN", side=3, adj=0.01, line=-4)
 mtext(outer =TRUE, "BIA", side=3, adj=0.01, line=-32)
@@ -2770,7 +2684,7 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 This is now figure 2 after revisions
 ```{r mort_growth_spaghetti_plot}
-bitmap(file=paste0(Figs_dir,simdate,"/Figure2_mortality_growth_rates.png"),width=80,height=120,units="mm",res =480,type="png16m")
+bitmap(file=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units="mm",res =1000,type="png16m")
 
 
 #collect growth and mort statistics during early recovery - prepare extended data frame:
@@ -2853,21 +2767,7 @@ for (site in sites){
   axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
   mtext(paste0(def(site)),adj=0.97,side=3,line=-1.4)
 
-  if(site=="BIA"){
-    # add legend into FIN, there is the most space:
-    legend(legend = c("BiomeE","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS","EDv3","SEIB-DGVM","ORCHIDEE"),
-         lty= 1,lwd=2.3,
-         col = c(get_model_colour("BiomeE-Standalone"),
-                 get_model_colour("BiomeEP"),
-                 get_model_colour("CABLE-POP"),
-                 get_model_colour("FATES"),
-                 get_model_colour("JULES-RED"),
-                 get_model_colour("LPJ-GUESS"),
-                 get_model_colour("EDv3"),
-                 get_model_colour("SEIB-DGVM"),
-                 get_model_colour("ORCHIDEE")),"topright", ncol = 2, box.lwd = 0)
 
-  }
 
 }
 
@@ -2921,6 +2821,22 @@ for (site in sites){
   axis(side=2,tick = F,line = -0.7)
   axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
   mtext(paste0(ghi(site)),adj=0.97,side=3,line=-1.4)
+  
+  if(site=="BCI"){
+    # add legend into FIN, there is the most space:
+    legend(legend = c("BiomeE","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS","EDv3","SEIB-DGVM","ORCHIDEE"),
+         lty= 1,lwd=2.3,
+         col = c(get_model_colour("BiomeE-Standalone"),
+                 get_model_colour("BiomeEP"),
+                 get_model_colour("CABLE-POP"),
+                 get_model_colour("FATES"),
+                 get_model_colour("JULES-RED"),
+                 get_model_colour("LPJ-GUESS"),
+                 get_model_colour("EDv3"),
+                 get_model_colour("SEIB-DGVM"),
+                 get_model_colour("ORCHIDEE")),"bottomright", ncol = 2, box.lwd = 0)
+
+  }
 }
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
