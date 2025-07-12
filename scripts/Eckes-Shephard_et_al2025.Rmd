@@ -1,5 +1,5 @@
 ---
-title: "Paper0_analysis_code"
+title: "Analysis code for the publication Demography, Dynamics and Data: Growing Confidence for Simulating Changes in the World's Forests"
 author: "Annemarie Eckes-Shephard"
 date: "2024-09-24"
 output:
@@ -10,7 +10,7 @@ output:
 # Setup instructions
 
 1) download the model outputs and benchmarking data from:
-Zenodo
+  DOI 10.5281/zenodo.14415142
 
 2) install DGVMTools from:
 https://github.com/MagicForrest/DGVMTools
@@ -78,7 +78,7 @@ ghi <- function(site){
 ```
 
 ```{r select_equilibrium_period}
-# reported in Table S1.5
+# reported in Table S5
 # for some calculations, the model-specific dynamic equilibrium period after regrowth has finished is required
 # the values are derived by eyeballing the timeseries of cwood variable for each model, and
 # visually determining when an equilibrium has emerged.
@@ -194,47 +194,16 @@ dev.off()
 
 ```
 
-> **Note:** This is a highlighted text box created using block quotes.
-> You can add as many lines as you want here.
-
-> explanations about variables used for carbon closure:
->
->From: Ensheng Weng <ew2560@columbia.edu>
->Sent: Tuesday, October 8, 2024 5:18 AM
->To: Annemarie Eckes-Shephard <annemarie.eckes-shephard@nateko.lu.se>
->Subject: Re: Fw: BiomeE rerun for total WDgrowth and WDmort fluxes
->
->Hi, Annemarie,
->Just a quick follow up about the reruns with woody carbon closure.
->I attached a sample file (BCI, aCO2. no disturbance) in this email. You can see the calculated wood carbon fits the simulated well.
->In the output files, the fluxes of WDgrow, WDmort, WDrepr  (new seedlings from reproduction), WDkill (killed trees because of low density), WDmgrt >(migrated plants, once in year 31) and WDdstb (removed by disturbance, year 31).
->The netCDF files with individual variables are in the shared google folder (link is in the last email of this thread).
->Let me know please if there are any problems.
->
->Best,
->Ensheng
->
->
->
->From: Jessica Needham <jfneedham@lbl.gov>Sent: Thursday, September 19, 2024 11:02 PMTo: Annemarie Eckes-Shephard ><annemarie.eckes-shephard@nateko.lu.se>Cc: Thomas Pugh <thomas.pugh@nateko.lu.se>; Charles Koven <cdkoven@lbl.gov>; Rosie Fisher ><rosie.fisher@cicero.oslo.no>Subject: Re: Updated FATES simulations
->
->(...)
->#FATES: cveg_total with Bgrowth and cmort.
->
->In my figure to check this (attached) I have input = npp (FATES_Bgrowth) and output = litter + seed decay (FATES_cmort). The Cumulative sum of npp - >(litter + seed decay) matches vegetation carbon + seed bank through time. Litter is all mortality plus any turnover of other tissues. NPP is >growth of woody + non woody tissues. I did this because vegetation carbon and mortality fluxes  in FATES also include non woody tissues, i.e we >don’t track loss of just woody carbon from mortality. I’d have to add new history variables if we wanted to do this.
->
->I just realized the reason it isn’t working in your files is because I didn’t include the seed bank in the cveg files I sent. I can remake those >and upload them to box. I guess this isn’t really a test of the woody carbon budget anymore but it gets really complicated with recruits anytime I >try to ignore seeds.
->(...)
->
 
 # Benchmarks - all models
 
 ## Regrowth and equilibrium dynamics
 
 ```{r Figure_1_regrowth_all_models_manuscript, eval=TRUE}
+#### regrowth curve + equilibrium biomass dynamics
+
 
 png(filename = paste0(Figs_dir,simdate,"/Figure_1.png"),width=180,height=240,units = "mm",res=1000)
-#### regrowth curve + equilibrium biomass dynamics
 
 par(mfcol=c(3,1),mar=c(0,3,0,0),oma=c(0,0,0.1,0.15),cex=0.8)
 xlim = 300
@@ -1574,14 +1543,14 @@ knitr::kable(table_out[,c("Mname","STLslope","site")],col.names=c("Model","STslo
 ```{r Figure_5_turnover_and_growth}
 
 #png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=215,height=340,units="mm",res =300)
-png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1000)
+png(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=180, height=180, units="mm",res =1000)
 #bitmap(file=paste0(Figs_dir,simdate,"/Figure_5.png"),width=80,height=80,units="mm",res =1300,type="png16m")
 
 eq_dyn_obs <- read.csv(paste0(obs.path,"/benchmark_eq_dynamics.csv"),head =TRUE)
 turnover_obs <- read.csv(paste0(obs.path,"/benchmark_turnover_times.csv"),head=TRUE) 
 WBgrowth_obs <- read.csv(paste0(obs.path,"/benchmark_WBgrowth.csv"),head=TRUE) 
 
-tiff(file=paste0(Figs_dir,simdate,"/Figure_5.tiff"),width=160,height=200,units="mm",res =1300)
+#tiff(file=paste0(Figs_dir,simdate,"/Figure_5.tiff"),width=160,height=200,units="mm",res =1300)
 
 #tiff("boxplot_highres.tiff", width = 180, height = 240, units = "mm", res = 600)
 
@@ -2601,7 +2570,7 @@ mtext(outer = TRUE,side=1,"Year after disturbance/ bare ground reset")
 
 This is now figure 2 after revisions
 ```{r mort_growth_spaghetti_plot}
-png(filename=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units = "mm",res=1000)
+png(filename=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units = "mm",res=600)
 #bitmap(file=paste0(Figs_dir,simdate,"/Figure_2.png"),width=80,height=120,units="mm",res =1000,type="png16m")
 
 #collect growth and mort statistics during early recovery - prepare extended data frame:
@@ -2617,7 +2586,7 @@ FULL$State[13:15] <- "min within 30 first years"
 FULL$State[16:18] <- "max within 30 first years"
 FULL$sites[13:18]  <- rep(sites,2)
 
-par(mfcol =c(3,2), oma=c(4.2,0,0.1,0.3),mar=c(0,3,0,0.5))
+par(mfcol =c(3,2), oma=c(2.2,0,0.1,0.3),mar=c(0,2.5,0,0))
 
 normalise=FALSE  #Switch to  equilibrium normalised plots if TRUE
 
@@ -2680,17 +2649,17 @@ for (site in sites){
 
 
   axis(1, lwd = 0, lwd.ticks = 1, tck = 0.02,labels=F)
-  axis(side=2,tick = F,line = -0.7)
+  axis(side=2,tick = F,line = -0.7,cex.axis=0.9)
   axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
-  mtext(paste0(def(site)),adj=0.97,side=3,line=-1.4)
+  mtext(paste0(def(site)),adj=0.97,side=3,line=-1.4,cex = 0.7)
 
 
 
 }
 
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
-axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=T)
-
+#axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=T,cex.axis=0.9)
+axis(side=1,tick = F,line = -0.7,cex.axis=0.9)
 
 for (site in sites){
 
@@ -2727,7 +2696,7 @@ for (site in sites){
     if(model_name == models_avail[1]){
 
 
-      plot(1:xmax,t(growth[[site]][model_name])[1:xmax], col = get_model_colour(model_name) , ylim=c(-0.5, 1.5),type="l",ylab="",xaxt="n",lwd=1, yaxt="n")
+      plot(1:xmax,t(growth[[site]][model_name])[1:xmax], col = get_model_colour(model_name) , ylim=c(-0.55, 1.55),type="l",ylab="",xaxt="n",lwd=1, yaxt="n")
     }else{
       lines(1:xmax,t(growth[[site]][model_name])[1:xmax], col = get_model_colour(model_name),lwd=1 )
 
@@ -2735,14 +2704,14 @@ for (site in sites){
   }
     }
   axis(1, lwd = 0, lwd.ticks = 1, tck = 0.02,labels=F)
-  axis(side=2,tick = F,line = -0.7)
+  axis(side=2,tick = F,line = -0.5,cex.axis=0.8)
   axis(2, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
-  mtext(paste0(ghi(site)),adj=0.97,side=3,line=-1.4)
+  mtext(paste0(ghi(site)),adj=0.97,side=3,line=-1.4,cex = 0.7)
   
   if(site=="BCI"){
     # add legend into FIN, there is the most space:
     legend(legend = c("BiomeE","BiomeEP","CABLE-POP","FATES","JULES-RED","LPJ-GUESS","EDv3","SEIB-DGVM","ORCHIDEE"),
-         lty= 1,lwd=2.3,
+         lty= 1,lwd=2,
          col = c(get_model_colour("BiomeE-Standalone"),
                  get_model_colour("BiomeEP"),
                  get_model_colour("CABLE-POP"),
@@ -2751,19 +2720,20 @@ for (site in sites){
                  get_model_colour("LPJ-GUESS"),
                  get_model_colour("EDv3"),
                  get_model_colour("SEIB-DGVM"),
-                 get_model_colour("ORCHIDEE")),"bottomright", ncol = 2, box.lwd = 0)
+                 get_model_colour("ORCHIDEE")),"bottomright", ncol = 2, cex=0.5, box.lwd = 0)
 
   }
 }
-
+box()
 axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=F)
-axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=T)
+#axis(1, lwd = 0, lwd.ticks = 1, tck = -0.02,labels=T,cex.axis=0.9)
+axis(side=1,tick = F,line = -0.7,cex.axis=0.9)
 
 #mtext(outer=TRUE,expression("Woody biomass increment rate ("KgCm^2yr^-1")"),side=2, line = -25) # expression("Growth Rate (" ~ kg ~ C / m^2 / yr ~ ")"))
-mtext(expression("Woody biomass increment rate (kgCm"^-2~"yr"^-1~")"), side=2, line=-25.5, outer=TRUE)
+mtext(expression("Woody biomass increment rate (kgCm"^-2~"yr"^-1~")"), side=2, line=-13.2, outer=TRUE,cex = 0.7)
 #expression(log(nstems)~(nstems~ha^-1))
-mtext(outer=TRUE,expression("Woody biomass mortality rate (% yr"^-1~")"),side=2, line=-1.65)
-mtext(outer=TRUE,"Year since disturbance",side=1, line=2.3)
+mtext(outer=TRUE,expression("Woody biomass mortality rate (% yr"^-1~")"),side=2, line=-1.6,cex=0.7)
+mtext(outer=TRUE,"Year since disturbance",side=1, line=1,cex=0.7)
 dev.off()
 
 
