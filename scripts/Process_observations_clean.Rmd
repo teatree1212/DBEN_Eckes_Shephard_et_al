@@ -1,0 +1,1865 @@
+---
+title: "Process_observations"
+output: html_document
+date: "2022-10-06"
+author: "Annemarie Eckes-Shephard"
+---
+
+This Markdown is used to process data for:
+
+* Regrowth curves (AGB kgC m2, but really "woody aboveground carbon")
+* Equilibrium carbon content (AGB kgC m2, but really "woody aboveground carbon")
+* Stand structure  (dbh <-> AGB kgC m2, but really "woody aboveground carbon" & 
+                    dbh classes <-> number of stems)
+* (Self-) thinning plots
+* carbon mortality rates (KgC m-2 yr-1)
+                    
+...for tropical, temperate and boreal datasets
+
+
+```{r setup, include=FALSE}
+
+library("readxl")
+#library("plyr")
+library("dplyr")
+library("DGVMTools")
+library(maps)
+
+temperate_col = "light green"
+boreal_col    = "dark green"
+tropics_col   = "brown"
+
+source("../scripts/Format-DBEN_Eckes-Shephard_et_al2025.R")
+source("../scripts/DBEN_helper_functions_clean.R")
+obs.raw = "../observations/1_raw/"
+obs.processed = "../observations/2_processed/"
+path    <- paste0(obs.raw,"regrowth_obs/")
+
+path_out <- obs.processed
+
+path_figs <- "../Figs/"
+
+
+BIA.path <-  paste0(obs.raw,"BIA/")
+
+BCI.path <-  paste0(obs.raw,"BCI/")
+
+FI.path <-  paste0(obs.raw,"FIN/")
+
+
+#unitconversion
+#convert from Mg ha-1 to kg C m-2
+hectare_to_metre=100^2
+ton_to_kg=1000
+DM_to_C=0.5
+seconds_to_year = 31536000
+```
+
+# Regrowth curves
+
+### Tropical regrowth curve
+
+_Citation for the database:_ 
+Poorter L, Bongers F, Aide TM, Almeyda Zambrano AM, Balvanera P, Becknell JM, Boukili V, Brancalion PHS, Broadbent EN, Chazdon RL, Craven D, d
+de Almeida-Cortez JS, Cabral GAL, de Jong BHJ, Denslow JS, Dent DH, DeWalt SJ, Dupuy JM, Dur·n SM, EspÌrito-Santo MM, Fandino MC, CÈsar RG, 
+Hall JS, Hernandez-Stefanoni JL, Jakovac CC, Junqueira AB, Kennard D, Letcher SG, Licona J, Lohbeck M, MarÌn-Spiotta E, MartÌnez-Ramos M, 
+Massoca P, Meave JA, Mesquita R, Mora F, MuÒoz R, Muscarella R, Nunes YRF, Ochoa-Gaona S, de Oliveira AA, Orihuela-Belmonte E, PeÒa-Claros M, 
+PÈrez-GarcÌa EA, Piotto D, Powers JS, RodrÌguez-Vel·zquez J, Romero-PÈrez IE, RuÌz J, Saldarriaga JG, Sanchez-Azofeifa A, Schwartz NB, Steininger MK, 
+Swenson NG, Toledo M, Uriarte M, van Breugel M, van der Wal H, Veloso MDM, Vester HFM, Vicentini A, Vieira ICG, Vizcarra Bentos T, Williamson GB, Rozendaal 
+DMA Data from: Biomass resilience of Neotropical secondary forests. Nature http://dx.doi.org/10.5061/dryad.82vr4 
+
+
+Is their AGB the equivalent of the model output cwood - woody biomass (stem and crown, coarse roots)?
+It seems like they estimate AGB using allometric equations, based on dbh and wood density.
+
+"Aboveground tree biomass estimates vary depending on the allometric equation used. Live aboveground biomass was therefore calculated for each tree using three (sets of) frequently used allometric equations (Supplementary Information S1 Table 1) : 1) Brown1 , 2) Chave 20052 , and 3) Chave 20143 . The Brown equations are based on stem diameter only, the Chave 2005 and 2014 equations are based on a combination of stem diameter and wood density."
+Poorter, supplementary materials. 
+
+
+```{r Poorter}
+
+Poorter <- read.csv(paste0(path,"/Poorter/full_dataset/Aboveground_biomass_2ndFOR_database.csv"))
+
+Poorter$Age <- as.numeric(Poorter$Age)
+
+#rm observations for which there is missing data for our relevant variables, AGB and age:
+Poorter <- Poorter[which(!is.na(Poorter$AGB)),]
+Poorter <- Poorter[which(!is.na(Poorter$Age)),]
+
+
+Poorter$AGB_kgCm2  <- (Poorter$AGB/hectare_to_metre)*ton_to_kg*DM_to_C
+
+#perform binning with custom breaks, with 20 year age bins, following Pugh et al 2019 (supplementaries S6)
+#Pugh, T. A. M., Lindeskog, M., Smith, B., Poulter, B., Arneth, A., Haverd, V., & Calle, L. (2019). 
+#Role of forest regrowth in global carbon sink dynamics. Proceedings of the National Academy of Sciences,
+#116(10), 4382–4387. https://doi.org/10.1073/pnas.1810512116
+
+Poorter <- Poorter[order(Poorter$Age),]
+#binning in to 20 year bins
+Poorter_bin <- Poorter %>% mutate(new_bin = cut(Age, breaks=seq(0,100,20),include.lowest = TRUE,ordered_result = TRUE))
+
+#calculate bin stats and filter out bins that have <20 samples:
+n_samples_per_bin <- summary(cut(Poorter$Age, breaks=seq(0,100,20),include.lowest = TRUE))
+idx_rm <- n_samples_per_bin < 20
+ns_keep <- names(n_samples_per_bin)[!idx_rm]
+
+#rm those which have less than 20 data points (following Pugh et al 2019):
+Poorter_bin <- Poorter_bin[Poorter_bin$new_bin %in% c(ns_keep),]
+
+#drop unused factor levels ( i.e. the ones that no longer have data within them)
+Poorter_bin <- droplevels(Poorter_bin)
+
+#summary stats on bins:
+Poorter_bin <- Poorter_bin %>% group_by(new_bin) %>% summarise(AGcwood_kgCm2_med = median(AGB_kgCm2),
+                                                AGcwood_kgCm2_10 = quantile(AGB_kgCm2, c(.10) ),
+                                                AGcwood_kgCm2_90 = quantile(AGB_kgCm2, c(.90) ) ,
+                                                n = n())
+
+#dataframe to collect the processed data in:
+regrowth <- Poorter_bin
+regrowth$Biome <- "Tropics"
+
+```
+
+```{r extract_lat_lonPoorter}
+#For figure in publication to highlight where the data has come form
+
+####################################################################
+# Tropical regrowth data - Poorter et al
+# created based on version_1_withnames.csv a Poorter_2016_Amazon_SecForAGB_version_2_withnames_AHES file, which can be merged with
+# Aboveground_biomass_2ndFOR_database.csv to get the corresponding lat lons
+# must get lat lons and age and year of publication, to approximate disturbance/logging year.
+# Poorter_age <- #read.csv(paste0(path,"/Poorter/Poorter_2016_Amazon_SecForAGB_version_1_withnames.csv"))
+Poorter_age <- read.csv(paste0(path,"/Poorter/Poorter_2016_Amazon_SecForAGB_version_2_withnames_AHES.csv"))
+Poorter_latlon <- read.csv(paste0(path,"/Poorter/full_dataset/Aboveground_biomass_2ndFOR_database_v2_AHES.csv"))
+
+#done here to filter out "OG" forest, that is not considerd in regrowth plots, because the age is not exactly determined:
+#needed for further below
+Poorter_latlon[which(Poorter_latlon$Age =="OG"),]$Age <- 2000
+Poorter_latlon$Age <- as.numeric(Poorter_latlon$Age)
+
+#hack to get string names the same:
+Poorter_latlon$Chronosequence <- sub("qu\xed", "x",Poorter_latlon$Chronosequence, fixed=TRUE,useBytes = TRUE)
+Poorter_latlon$Chronosequence <- sub("qu\xe9s", "x",Poorter_latlon$Chronosequence, fixed=TRUE,useBytes = TRUE)
+Poorter_latlon$Chronosequence <- sub("Par\xe1", "x",Poorter_latlon$Chronosequence, fixed=TRUE,useBytes = TRUE)
+Poorter_latlon$Chronosequence <- sub("t\xe1n", "x",Poorter_latlon$Chronosequence, fixed=TRUE,useBytes = TRUE)
+
+names(Poorter_latlon)[1] <- "Name"
+Poorter_mer <- merge(Poorter_age,Poorter_latlon,by="Name")
+
+#testing:
+Poorter_age$Name[which(!(Poorter_age$Name %in% Poorter_mer$Name))]
+#"Manaus (Cecropia pathway)" "Manaus (Vismia pathway)"   "Sarapix(Chazdon)"          "Quintana Roo"              "Pucallpa"
+#These sites do not occur in Poorter latlon (Aboveground_biomass_2ndFOR_database.csv), and were therefore not found in the merge. all other mergers were successful
+
+#remove unpublished content:
+Poorter_mer <- Poorter_mer[which(Poorter_mer$Reference !="unpublished"),]
+# use loop,
+Poorter_mer$publYear <- NA
+# correct so that loop works:
+Poorter_mer[which(Poorter_mer$Reference == "Steininger, M. K. 2000) J. Trop. Ecol. 16, 689-708"),]$Reference <- "Steininger, M. K. (2000) J. Trop. Ecol. 16, 689-708"
+for (l in 1:dim( Poorter_mer)[1]){
+Poorter_mer$publYear[l]  <-  gsub("[\\(\\)]",          # Extract characters within parentheses
+"",
+regmatches(Poorter_mer$Reference[l],
+gregexpr("\\(.*?\\)",
+Poorter_mer$Reference[l]))[[1]])
+}
+
+
+#select relevant cells:
+#remove those two sites which are excluded from the analysis due to too low sample size in upper age bin:
+Poorter_mer <- Poorter_mer[which(Poorter_mer$Age < 80),] # filters our two monitoring sites with age 100 and 80, and OG sites.
+# I wonder whether we could use the "OG" sites as extra evidence for Carbon stocks in equilibrium? But they aren't from BCI then..
+tropics_uniquename <- unique(Poorter_mer[,c("Name","Lat","Lon")])
+tropics_uniquename$Name  <- NULL
+tropics_uniquename$Biome <- "Tropics"
+latlons_samples <- tropics_uniquename
+
+```
+
+### Temperate regrowth curve
+
+_Citation:_
+Teobaldelli, M., Somogyi, Z., Migliavacca, M., & Usoltsev, V. A. (2009). 
+Generalized functions of biomass expansion factors for conifers and broadleaved by stand age, 
+growing stock and site index. Forest Ecology and Management, 257(3), 1004–1013. https://doi.org/10.1016/j.foreco.2008.11.002
+
+
+```{r Teobaldelli, message=FALSE, warning=FALSE}
+
+#read in datasets, will be merged below:
+# biomass from here, as done in Pugh et al 2019, preprocessed by Vanessa Haverd, original dataset cross-checked with Maurizio Teobaldelli:
+#Tuesday, October 8, 2024 8:55 PM "Comparing my file with yours I can say that the unique two data sheets (Plot Info and Biomass Data) that I had in my DB are similar (i.e., total number of rows and header) to the same sheets that are also in your file, but yours have also other sheets that were probably added during the analysis."
+biom_data <- read.csv(paste0(path,"/Teobaldelli/Teobaldelli_biomassdata3.csv"))
+# age from here, as done in Pugh et al 2019, preprocessed by Vanessa Haverd
+plot_info <- read.csv(paste0(path,"/Teobaldelli/Teobaldelli_plotinfo4.csv"))
+# xlsx files - for merge to get species and country, used to select regions and relevant species for regrowth comparison:
+Teo <- read_excel(paste0(path,"/Teobaldelli/Teobaldelli.xlsx"), sheet = "Plot Info")
+
+#rm observations for which there is missing data for our relevant variables, biomass:
+biom_data$Dry.biomass..t.ha.  <- as.numeric(biom_data$Dry.biomass..t.ha.)
+biom_data       <- biom_data[which(!is.na(biom_data$Dry.biomass..t.ha.)),]
+
+#unitconversion:
+biom_data$KgCm2 <- (biom_data$Dry.biomass..t.ha./hectare_to_metre)*ton_to_kg*DM_to_C
+
+# remove root biomass records:
+#To make comparable with Poorter dataset, remove "compartment 5" to only take into account aboveground biomass
+biom_data <- biom_data[which(biom_data$Compartment..1.leaf.2.stem.branches.3.branches.4.stem.5.roots.6.b_bark.7.s_bark.8.other.!=5),]
+#what about the leaf biomass is very insignificant amount in most cases, but must be removed, for adequate comparison against model output:
+biom_data <- biom_data[which(biom_data$Compartment..1.leaf.2.stem.branches.3.branches.4.stem.5.roots.6.b_bark.7.s_bark.8.other.!=1
+                             & biom_data$Compartment..1.leaf.2.stem.branches.3.branches.4.stem.5.roots.6.b_bark.7.s_bark.8.other.!=5),]
+# note:later i groupe by ID  and sum up stem + branches to total biomass
+
+#rm observations for which there is missing data for our relevant variables, biomass,Age:
+plot_info <- plot_info[which(!is.na(plot_info$А..years.)),]
+mer <- merge(biom_data,plot_info, by="ID")
+
+# full merge
+Teo_full_merge <- merge(mer,Teo, by="ID")
+
+
+```
+
+
+#### Temperate regrowth species composition testing.
+Testing what regrowth curve makes sense for the Temperate simulations, the situation is the following:
+There seem to be no 'mixed' broadleaf and evergreen stands that can be used for generating the regrowth curves.
+'mixed' seems to in the data refer to a mix of the same leaf type. 
+In Bialowieza, we simulate a stand which contains both broadleaves and evergreens, which we will reflect in our PFT-choices. 
+The graph shows different options and tradeoffs in the data:
+Using all broadleaves (topleft), we get the most data.
+Using only mixed broadleaf forest to reflect multiple PFTs, we get less data, the upward regrowth trend is similar, is somewhat slower than for the pure forest (bottomleft) - but this might also be an artifact of the smaller dataset.
+Since we have a Needleleaf species at the BIA site, and will be simulating a needleleaf PFT, I tested the impact on the regrowth curve when mixing Picea abies in (from pure stands), there are only a handfull of 'mixed' P abies stands , in Japan, which are mixes with a different Picea genus.
+Adding P. abies into the mix, reduces the median recovery rate (black lines, bottomright), and also looks like it reduces the median equilibrium carbon content (though after 150 years , not so much anymore, note that the last measurements in that timeseries bottomright are almost only pure picea stands), broadleaf data  (n>20) stops after 150 years. 
+
+
+#### Decision:
+The growth dynamics of picea by itself might be rather different to growth dynamics of picea in a broadleaf mix and vice-versa. Picea data might also come predominately from managed stands. 
+At BIA, we have about 60% broadleaves in the mix, so the broadleaf dynamics will probably be dominating the regrowth dynamcics there. I will be going forward with the dataset containing Broadleaves only (topleft regrowth curve) which has the most and longest data, and some influence of the mixed broadleaf dataset in there. 
+
+```{r Temperate_tests, eval=FALSE }
+#What to select for Temperate Broadleaf mixed forest?
+
+table(Teo_full_merge[ which(Teo_full_merge$lat>23 &Teo_full_merge$lat < 60  & Teo_full_merge$Genus != "Eucalyptus" 
+                       & Teo_full_merge$Genus != "Acacia"
+                       & Teo_full_merge$Genus != "Castanopsis"
+                       & Teo_full_merge$Genus != "Shorea"
+                       & Teo_full_merge$Genus != "Tectona" 
+                       & Teo_full_merge$Genus != "Camellia"
+                       & Teo_full_merge$Genus != "Cinnamomum"
+                       & Teo_full_merge$Genus != "Cyclobalanopsis" & Teo_full_merge$Genus != "Larix"),c("Botanical type","Forest composition")])
+#                Forest Composition
+# Botanical.type mixed pure
+#              1  1185 2822
+#              2    29 7796
+#            These 29 mixed conifer (type 2) forest stands are in Japan, a mix of Picea + Picea and Picea + Abies:
+#Teo_full_merge[ which(Teo_full_merge$lat>23 &Teo_full_merge$lat < 60  & Teo_full_merge$Genus != "Eucalyptus" 
+#                      & Teo_full_merge$Genus != "Acacia"
+#                      & Teo_full_merge$Genus != "Castanopsis"
+#                      & Teo_full_merge$Genus != "Shorea"
+#                      & Teo_full_merge$Genus != "Tectona" 
+#                      & Teo_full_merge$Genus != "Camellia"
+#                      & Teo_full_merge$Genus != "Cinnamomum"
+#                      & Teo_full_merge$Genus != "Cyclobalanopsis" & Teo_full_merge$Genus != "Larix"  & Teo_full_merge$Botanical.type == 2 #&Teo_full_merge$`Forest composition`== "mixed" ),c("Botanical.type","Forest composition","species","Country")]
+
+#            There are mixed broadleaf (type 1) forest stands: 
+
+Teo_full_merge[ which(Teo_full_merge$lat>23 &Teo_full_merge$lat < 60  & Teo_full_merge$Genus != "Eucalyptus" 
+                      & Teo_full_merge$Genus != "Acacia"
+                      & Teo_full_merge$Genus != "Castanopsis"
+                      & Teo_full_merge$Genus != "Shorea"
+                      & Teo_full_merge$Genus != "Tectona" 
+                      & Teo_full_merge$Genus != "Camellia"
+                      & Teo_full_merge$Genus != "Cinnamomum"
+                      & Teo_full_merge$Genus != "Cyclobalanopsis" & Teo_full_merge$Genus != "Larix"  & Teo_full_merge$Botanical.type == 1 &Teo_full_merge$`Forest composition`== "mixed" ),c("Botanical.type","Forest composition","species","Country")]
+
+# no 'mixed' broadleaf and needleleaf forest stands seem to exist in this dataset given these conditions. 
+# But there are many mixed broadleaf-broadleaf forest stands
+# But 'mixed' might just refer to the dominant species at these plots, and other species might still be growing but are not recored?
+
+idx_broad_mixed <- which(Teo_full_merge$lat>23 &Teo_full_merge$lat < 60  & Teo_full_merge$Genus != "Eucalyptus" 
+                      & Teo_full_merge$Genus != "Acacia"
+                      & Teo_full_merge$Genus != "Castanopsis"
+                      & Teo_full_merge$Genus != "Shorea"
+                      & Teo_full_merge$Genus != "Tectona" 
+                      & Teo_full_merge$Genus != "Camellia"
+                      & Teo_full_merge$Genus != "Cinnamomum"
+                      & Teo_full_merge$Genus != "Cyclobalanopsis" & Teo_full_merge$Genus != "Larix"  & Teo_full_merge$Botanical.type == 1 &Teo_full_merge$`Forest composition`== "mixed" )
+
+idx_broad_pure <- which(Teo_full_merge$lat>23 &Teo_full_merge$lat < 60  & Teo_full_merge$Genus != "Eucalyptus" 
+                      & Teo_full_merge$Genus != "Acacia"
+                      & Teo_full_merge$Genus != "Castanopsis"
+                      & Teo_full_merge$Genus != "Shorea"
+                      & Teo_full_merge$Genus != "Tectona" 
+                      & Teo_full_merge$Genus != "Camellia"
+                      & Teo_full_merge$Genus != "Cinnamomum"
+                      & Teo_full_merge$Genus != "Cyclobalanopsis" & Teo_full_merge$Genus != "Larix"  & Teo_full_merge$Botanical.type == 1 &Teo_full_merge$`Forest composition`== "pure" )
+
+idx_broad <- which((Teo_full_merge$lat>23 &Teo_full_merge$lat < 60 & Teo_full_merge$Botanical.type == 1 
+                    & Teo_full_merge$Genus != "Eucalyptus" 
+                    & Teo_full_merge$Genus != "Acacia"
+                    & Teo_full_merge$Genus != "Castanopsis"
+                    & Teo_full_merge$Genus != "Shorea"
+                    & Teo_full_merge$Genus != "Tectona" 
+                    & Teo_full_merge$Genus != "Camellia"
+                    & Teo_full_merge$Genus != "Cinnamomum"
+                    & Teo_full_merge$Genus != "Cyclobalanopsis"))
+
+idx_broad_all_picea  <- which((Teo_full_merge$lat>23 &Teo_full_merge$lat < 60 & Teo_full_merge$Botanical.type == 1 
+                   & Teo_full_merge$Genus != "Eucalyptus" 
+                   & Teo_full_merge$Genus != "Acacia"
+                   & Teo_full_merge$Genus != "Castanopsis"
+                   & Teo_full_merge$Genus != "Shorea"
+                   & Teo_full_merge$Genus != "Tectona" 
+                   & Teo_full_merge$Genus != "Camellia"
+                   & Teo_full_merge$Genus != "Cinnamomum"
+                   & Teo_full_merge$Genus != "Cyclobalanopsis")
+                   | (Teo_full_merge$lat>23 &Teo_full_merge$lat < 60 & Teo_full_merge$Botanical.type == 2 & Teo_full_merge$Genus != "Picea" )
+)
+
+par(mfrow=c(2,2))
+for(lt in c("broad", "idx_broad_mixed","idx_broad_pure", "idx_broad_all_picea")){# do not need coniferous temperate, we simulate a mix of broadl. and picea abies the wording here is a legacy.
+  if(lt == "broad"){
+    Teo_full <- Teo_full_merge[idx_broad,]
+    leaf_type = "All"
+    lgnd = c("All Broadl deciduous")
+    col="green"
+  }else if(lt == "idx_broad_mixed"){
+    Teo_full <- Teo_full_merge[idx_broad_mixed,]
+    leaf_type = "Mixed only"
+    lgnd = c("All Broadl mixed")
+    col="green"
+  }else if(lt == "idx_broad_pure"){
+    Teo_full <- Teo_full_merge[idx_broad_pure,]
+    leaf_type = "Pure only"
+    lgnd = c("All Broadl pure")
+    col="green"
+  }else{
+    Teo_full <- Teo_full_merge[idx_broad_all_picea,]# "idx_conif_Fin"
+    leaf_type = "All + picea"
+    col= "dark green"
+    lgnd = c("All + picea")
+    
+  }
+  Teo_tot<- Teo_full %>% group_by(ID,А..years.,Botanical.type,Country,Genus,lat) %>% summarise(total_kgCm2 = sum(KgCm2))
+    
+      #binning:
+      #must account for one v. old tree, 400 years old - otherwise, we have an NA entry
+      mer_bin <- Teo_tot %>% mutate(new_bin = cut(А..years., breaks=seq(0,400,20),include.lowest = TRUE,ordered_result = TRUE) ) 
+      mer_bin <- mer_bin[which(!is.na(mer_bin)),]
+      n_samples_per_bin <- summary(cut(Teo_tot$А..years., breaks=seq(0,400,20),include.lowest = TRUE,ordered_result = TRUE)) 
+      #include.lowest = FALSE This removes age = 0 forests. 
+      idx_rm <- n_samples_per_bin < 20
+      ns_keep <- names(n_samples_per_bin)[!idx_rm]
+      ns_keep <- ns_keep[!(ns_keep %in% "NA's")] # rm na string
+      #rm those which have less than 100 data points:
+      mer_bin <- mer_bin[mer_bin$new_bin %in% c(ns_keep),]
+      #drop unused factor levels
+      mer_bin <- droplevels(mer_bin)
+      
+      mer_bin <- mer_bin %>% group_by(new_bin) %>% summarise(AGcwood_kgCm2_med = median(total_kgCm2),
+                                                         AGcwood_kgCm2_10 = quantile(total_kgCm2, c(.10) ,na.rm=TRUE),
+                                                         AGcwood_kgCm2_90 = quantile(total_kgCm2, c(.90),na.rm=TRUE),
+                                                         n=n())
+      
+      n_levels <- dim(mer_bin)[1]
+      
+      #plot("n",ylim=c(0,40),ylab='',xlim=c(0,14),xaxt='n',xlab='',main = leaf_type)
+      plot(mer_bin$new_bin, mer_bin$AGcwood_kgCm2_med,ylim=c(0,30),col="red",xlim=c(0,14),ylab='',xlab='',xaxt='n',main=leaf_type)
+      abline(h=10,col="light grey")
+      arrows(1:n_levels, mer_bin$AGcwood_kgCm2_10, 1:n_levels, mer_bin$AGcwood_kgCm2_90, length=0.00, angle=90, code=3,col=col)
+      axis(side=1,at=1:12, labels=seq(10,240,20))
+      mtext(side=2,"AGB KgCm2",line=2)
+      legend(legend=lgnd, fill=col, "topright",box.lwd=0,bg="transparent",cex=0.8)
+      
+}
+mtext(outer=TRUE,side=3,line=-1.3,"Temperate - Broadleaf , and with picea (Pure stands)")
+```
+
+
+```{r collect_Temperate_regrowth}
+
+#using full broadleaf dataset:
+
+idx_broad <- which((Teo_full_merge$lat>23 &Teo_full_merge$lat < 60 & Teo_full_merge$Botanical.type == 1 
+                    & Teo_full_merge$Genus != "Eucalyptus" 
+                    & Teo_full_merge$Genus != "Acacia"
+                    & Teo_full_merge$Genus != "Castanopsis"
+                    & Teo_full_merge$Genus != "Shorea"
+                    & Teo_full_merge$Genus != "Tectona" 
+                    & Teo_full_merge$Genus != "Camellia"
+                    & Teo_full_merge$Genus != "Cinnamomum"
+                    & Teo_full_merge$Genus != "Cyclobalanopsis"))
+
+ 
+  Teo_full <- Teo_full_merge[idx_broad,]
+  Teo_tot <- Teo_full %>% group_by(ID,А..years.,Botanical.type,Country,Genus,lat) %>% summarise(total_kgCm2 = sum(KgCm2))
+    
+      #binning:
+      mer_bin <- Teo_tot %>% mutate(new_bin = cut(А..years., breaks=seq(0,400,20),include.lowest = TRUE,ordered_result = TRUE) ) 
+      # mer_bin <- mer_bin[which(!is.na(mer_bin)),]
+     
+      #calculating by bin: 
+      mer_bin_Teo <- mer_bin %>% group_by(new_bin) %>% summarise(AGcwood_kgCm2_med = median(total_kgCm2),
+                                                         AGcwood_kgCm2_10 = quantile(total_kgCm2, c(.10) ,na.rm=TRUE),
+                                                         AGcwood_kgCm2_90 = quantile(total_kgCm2, c(.90),na.rm=TRUE),
+                                                         n=n())
+      # remove samples with less than 20 datapoints:
+      mer_bin_Teo <- mer_bin_Teo[which(mer_bin_Teo$n >= 20),]
+      
+      
+      # collect
+      mer_bin_Teo$Biome <- "Temperate"   
+      regrowth <- rbind(regrowth,mer_bin_Teo)    
+
+      ##add record of latlon from Teobaldelli dataset:
+      Teo_full_latlon <- unique(Teo_full[,c("lat","lon")])
+      names(Teo_full_latlon) <- c("Lat","Lon")
+      Teo_full_latlon$Biome <- "Temperate"
+      latlons_samples <- rbind(latlons_samples,Teo_full_latlon)
+
+      save(latlons_samples,file="../observations/2_processed/latlons_regrowth_obs.RData") # for visalisations of where the data is spread globally.
+```
+
+### Boreal regrowth curve
+
+Note that this Boreal curve is now from Finish research plots only that are unmanaged for >30 years or totally unmanaged ( pers. comm. Mikko Peltoniemi). Regrowth curve also contains the types of sites ( interms of fertility "OMT" and "MT"), which match with those data for the stand structure observations.
+
+_Data citation_
+Repo, A., Rajala, T., Henttonen, H. M., Lehtonen, A., Peltoniemi, M., & Heikkinen, J. (2021). Age-dependence of stand biomass in managed boreal forests based on the Finnish National Forest Inventory data. Forest Ecology and Management, 498, 119507. https://doi.org/10.1016/j.foreco.2021.119507
+
+
+The received aboveground biomass data contains foliage which may be important to remove for boreal needleleave PFTs to get the correct woody aboveground biomass, which is what the models output.
+To remove foliage fraction, I use existing age-based equations from Lehntonen et al 2004.  (table 3)  (https://www.sciencedirect.com/science/article/pii/S0378112703003840#TBL3)
+Stand age must be considered for this, because biomass components are sensitive to stand age (Lehntonen et al 2004).
+
+Biomass expansion factors:
+"The biomass components of Scots pine, especially stem and foliage, were age-dependent;.... The biomass components of Norway spruce, especially branches and foliage, varied according to age" Lehntonen et al 2004
+
+_citation_: Lehtonen, A., Mäkipää, R., Heikkinen, J., Sievänen, R., & Liski, J. (2004). Biomass expansion factors (BEFs) for Scots pine, Norway spruce and birch according to stand age for boreal forests. Forest Ecology and Management, 188(1), 211–224. https://doi.org/10.1016/j.foreco.2003.07.008
+
+I chose the equation for pine, because it is apparently the most dominant
+tree species in Finland. 
+To remove a foliage fraction, I am applying the equation reported below 
+ table 3 to calculate foliage for the age bins I have and to calculate
+total ABVG for these age bins. Then I use these two to calculate the 
+fraction foliage at each age and then apply that fraction to median, 
+10percentile and 9th percentile of the regrowth data I got given. 
+
+
+```{r collect_Boreal_regrowth}
+
+regrowth_FI_in <- read.csv(file = paste0(FI.path,"regrowth_unmanaged_forests_last_table_biomass-in-bins-v3.csv"))
+
+#select for merging:
+regrowth_FI<- regrowth_FI_in[,c("agegroup","median","q.10.","q.90.","n")]
+regrowth_FI$agegroup <- as.factor(regrowth_FI$agegroup)
+# unitconversion 
+# "Units are now above ground biomass, kg/ha (also in Tuomas’ file, although y-axis says m3/ha)."Mikko
+# to kgC/m2
+regrowth_FI$median<- regrowth_FI$median /10
+regrowth_FI$q.10.<- regrowth_FI$q.10./10
+regrowth_FI$q.90.<- regrowth_FI$q.90./10
+
+#use age-dependent BEF to obtain foliage fraction.(Lehntonen et al 2004, table 3)
+# Must be subtracted from current regrowth dataset
+# 
+a = 0.0177
+b = 0.0499
+mid_age_bins <- c(10,30,50,70,90,110,130,150,170,190,210)
+regrowth_FI$foliage <- a + b *exp(-mid_age_bins/100) # unit: Mg m3
+a = 0.5436
+b = 0.0193
+regrowth_FI$ABVG <- a + b *exp(-mid_age_bins/100)
+
+regrowth_FI$conv_fract <- regrowth_FI$foliage /regrowth_FI$ABVG
+regrowth_FI$foliage_fract <- regrowth_FI$median * regrowth_FI$conv_fract
+
+#updated aboveground biomass without foliage
+regrowth_FI$median <- regrowth_FI$median - regrowth_FI$median * regrowth_FI$conv_fract
+regrowth_FI$q10    <- regrowth_FI$q.10. - regrowth_FI$q.10. * regrowth_FI$conv_fract
+regrowth_FI$q90    <- regrowth_FI$q.90. - regrowth_FI$q.90. * regrowth_FI$conv_fract
+
+#make compatible with regrowth dataframe for merging
+regrowth_FI_final <- regrowth_FI[,c("agegroup","median","q10","q90","n")]
+regrowth_FI_final$Biome <- "Boreal"   
+names(regrowth_FI_final) <-  names(regrowth)
+
+regrowth <- rbind(regrowth,regrowth_FI_final)    
+
+```
+
+
+# Equilibrium  mature forest biomass
+### Bialowieza
+
+Data permissions obtained for this particular project only, from Bogdan Brzeziecki
+ 
+Brzeziecki, B., Pommerening, A., Miścicki, S., Drozdowski, S., & Żybura, H. (2016). A common lack of demographic equilibrium among tree species in Białowieża National Park (NE Poland): Evidence from long-term plots. Journal of Vegetation Science, 27(3), 460–469. https://doi.org/10.1111/jvs.12369
+
+
+"biomass" = biomass of living stems at census 1 (Mg/ha - corrected for plot design)
+"biomass"/2 variable,  is equivalent in sentiment to "AGB" which the models' output.
+"n.stems" to generate stand structure data
+d (diameter, in mm)
+
+
+```{r BIA_obs}
+
+BIA_biomass <- read.csv(paste0(BIA.path,"01_treedata-biomass_TMt_NHR_BIAonly.csv"),header=TRUE)
+BIA_dynamics <- read.csv(paste0(BIA.path,"02_stand-level-dynamics_TMt_NHR_BIAonly.csv"),header=TRUE)
+
+dbh_classes_BIA = c("[0-1)","[1-5)", "[5-10)", "[10-15)","[15-20)","[20-30)","[30-40)","[40-50)","[50-60)","[60-70)","[70-80)",
+                "[80-90)","[90-100)","[100-150)","[150-200)","[200-)")
+dbh_classes_BIA <- ordered(dbh_classes_BIA,levels=dbh_classes_BIA)
+
+
+BIA_stand_structure <- data.frame(dbh_classes_num = c(1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,250),dbh_classes= dbh_classes_BIA)
+
+
+############Stand dynamics
+
+pid <- unique(BIA_dynamics$tmt.plot.id)
+var ="biomass"
+c = 0
+for(p in pid){ # for each plot..
+c = c+1
+  BIA_dynamics_sel <- BIA_dynamics[BIA_dynamics$tmt.plot.id == p,]
+  
+  #remove years for which variables do not exist:
+  BIA_dynamics_sel <- na.omit(BIA_dynamics_sel[,c("census.date",var,"tmt.plot.id")])
+  
+  #unitconversion:
+  BIA_dynamics_sel[,var] <- BIA_dynamics_sel[,var] *1000 / 10000 /2 # *megagram to kg , /ha to m2 /biomass to c only
+  
+ 
+  if(p=="NHR.bial.bial1"){
+ 
+    #collect first site:
+    BIA_dynamics_sel$colour <- c # for plotting, currently turned off
+    collect_biomass <- BIA_dynamics_sel
+    
+  }else{
+
+    # add more sites to collection
+    BIA_dynamics_sel$colour <- c
+    collect_biomass <- rbind(collect_biomass,BIA_dynamics_sel)
+  }
+  
+}
+
+#bin collected biomass into average census year bins:
+collect_biomass <- collect_biomass %>% mutate(new_bin = cut(census.date, breaks = c(0,1936,1959,1972,1983,1993,2003,2013),include.lowest = TRUE,ordered_result = TRUE) ) 
+
+# calculate median, and get max and min values:
+stand_dynamics <- collect_biomass %>% group_by(new_bin) %>% summarise(AGB_kgCm2 = median(biomass),
+                                                       AGB_upper_kgCm2 = max(biomass),
+                                                       AGB_lower_kgCm2 = min(biomass))
+                                                     
+
+#rename new_bin for plotting, they reflect the years of each census round across all 5 plots:
+sample_periods = c("[1936)","[1955-1959)","[1969-1971)","[1981-1983)","[1991-1993)","[2001-2003)","[2011-2013)")
+sample_periods <- ordered(sample_periods,levels=sample_periods)
+
+# and create new columns for these bins(as.factors)
+stand_dynamics$new_bin     <- sample_periods
+stand_dynamics$new_bin_num <- c(1936,1957,1970,1982,1992,2002,2012) # mean census round year, "average_date_of_records"
+stand_dynamics$Year        <- c(1936,1957,1970,1982,1992,2002,2012)
+
+#use df as record of biomass dynamics for all other sites, too, therefore, add column site:
+stand_dynamics$site <- "BIA"
+
+  
+#visualise
+plot(stand_dynamics$new_bin_num,stand_dynamics$AGB_kgCm2,ylim=c(0,30),xlim=c(1930,2020),ylab='',xlab='', main = "BIA",type="p",pch = 20)
+arrows(stand_dynamics$new_bin_num, stand_dynamics$AGB_lower_kgCm2, stand_dynamics$new_bin_num, stand_dynamics$AGB_upper_kgCm2, length=0.00, angle=90, code = 3,col = temperate_col)
+#arrows(stand_dynamics$new_bin_num+1, stand_dynamics$AGB_kgCm2_min, stand_dynamics$new_bin_num+1, stand_dynamics$AGB_kgCm2_max, length=0.00, angle=90, code = 3,col = temperate_col)
+#points(stand_dynamics$new_bin_num,stand_dynamics$AGB_kgCm2_mean,col="red")
+abline(h=10,col="light grey")
+mtext(side=1,line=2,"Years")
+mtext(side=2,"AGB KgCm2",line=2)
+
+
+
+############Stand structure
+
+#pre-processing:
+BIA_biomass$tmt.plot.id <- factor(BIA_biomass$tmt.plot.id)
+BIA_biomass$species.cor <- factor(BIA_biomass$species.cor)
+BIA_biomass <- BIA_biomass[which(BIA_biomass$tree.status !=1),] # filter out dead trees
+
+#plot number of stems must be standardised by size, so get plot size here:
+plot_size <- data.frame(pid=pid,plot_area = unique(BIA_dynamics$plot.area))
+
+#create df to collect plot stand structure data:
+stand_structure_BIA_nstem_size <- data.frame(dbh_classes_num = c(1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,250),dbh_classes= dbh_classes_BIA,BIA1=NA, BIA2=NA,BIA3=NA,BIA4=NA,BIA5=NA)
+stand_structure_BIA_AGB_size <- data.frame(dbh_classes_num = c(1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,250),dbh_classes= dbh_classes_BIA,BIA1=NA, BIA2=NA,BIA3=NA,BIA4=NA,BIA5=NA)
+
+c=0
+for(p in pid){
+c=c+1
+# for each plot: remove dead trees, filter for last available census
+# use all species for this
+    BIA_biomass_ssprep <- BIA_biomass[which(BIA_biomass$tmt.plot.id == p & BIA_biomass$census.date == max(BIA_biomass[which(BIA_biomass$tmt.plot.id == p),]$census.date) ),]
+    # filter out the ones with 0 basal area: Do this here instead of above when frequency of species is determined,
+    # because I am assuming that the tree is still there and identified during a census, 
+    # but just hasn't been measured during that census.
+    # overall this doesn't have much of an impact though.
+    BIA_biomass_ssprep <- BIA_biomass_ssprep[which(BIA_biomass_ssprep$ba != 0), ]
+    BIA_biomass_ssprep$d <- BIA_biomass_ssprep$d/10 #unitconversion mm to cm
+    
+    #binning
+    mer_bin <- BIA_biomass_ssprep %>% mutate(new_bin = cut(d, breaks =
+                                                             c(0,1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,350),
+                                                           include.lowest = TRUE,right =FALSE,ordered_result = TRUE) ) 
+    mer_bin <- mer_bin %>% group_by(new_bin) %>% summarise(AGB_Mgha_mean = sum(biomass), n = n())
+                                                       
+    # standardise by plot_area
+    # this must be in nstems /ha, so no conversion, as plot_size is in ha:
+    #unitconversion
+    mer_bin$n <- mer_bin$n/plot_size[which(plot_size$pid==p),"plot_area"]
+    mer_bin$AGB_Mgha_mean <- mer_bin$AGB_Mgha_mean/(plot_size[which(plot_size$pid==p),"plot_area"])
+    
+    # # to identify which rows mus tbe filled by the biomass data below:
+    idx <- which( summary(cut(BIA_biomass_ssprep$d, breaks = c(0,1,5,10,15,20,30,40,50,60,70,80,90,100,150,200,350),include.lowest = TRUE,right =FALSE,ordered_result = TRUE))>0)
+    
+    # collect number of stems here:
+    stand_structure_BIA_nstem_size[idx,2+c] <-  mer_bin$n 
+    
+    #get average mass in bin here:
+    #unitconversion
+    stand_structure_BIA_AGB_size[idx,2+c]  <-  c(mer_bin$AGB_Mgha_mean) *1000 / 10000 /2 # *megagram to kg , /ha to m2 /biomass to c only
+
+
+}
+
+# summary stats for BIA stand structure data, grouping the last decade of observations:
+stand_structure_BIA_nstem_size$BIA_nstem.ha        = apply(stand_structure_BIA_nstem_size[,-c(1,2)], 1, median)
+stand_structure_BIA_nstem_size$BIA_upper_nstem.ha  = apply(stand_structure_BIA_nstem_size[,-c(1,2)], 1, max)
+stand_structure_BIA_nstem_size$BIA_lower_nstem.ha  = apply(stand_structure_BIA_nstem_size[,-c(1,2)], 1, min)
+
+# Manually adjust the upper dbh-classes entries to 0, to express that there were no recorded trees at that size class.
+# I keep dbh-classes 1-10 as NA, as there are no records, but these size classes are actually present.
+idx <- which(is.na(stand_structure_BIA_nstem_size[15,]))
+stand_structure_BIA_nstem_size[15,idx] <- 0
+idx <- which(is.na(stand_structure_BIA_nstem_size[16,]))
+stand_structure_BIA_nstem_size[16,idx] <- 0
+
+BIA_stand_structure$nstem_size_ha.1       <- stand_structure_BIA_nstem_size$BIA_nstem.ha 
+BIA_stand_structure$nstem_size_upper_ha.1  <- stand_structure_BIA_nstem_size$BIA_upper_nstem.ha 
+BIA_stand_structure$nstem_size_lower_ha.1  <- stand_structure_BIA_nstem_size$BIA_lower_nstem.ha 
+
+####
+# summary stats for BIA stand structure data, grouping the last decade of observations from all sites (BIA1-5):
+BIA_stand_structure$AGB_size_kgCm.2   = apply(stand_structure_BIA_AGB_size[,-c(1,2)], 1, median)
+BIA_stand_structure$AGB_size_upper_kgCm.2 = apply(stand_structure_BIA_AGB_size[,-c(1,2)], 1, max)
+BIA_stand_structure$AGB_size_lower_kgCm.2 = apply(stand_structure_BIA_AGB_size[,-c(1,2)], 1, min)
+
+# Again,manually adjust the upper dbh-classes entries to 0, to express that there were no recorded trees at that size class.
+# I keep dbh-classes 1-10 as NA, as there are no records, but these size classes are actually present.
+idx <- which(is.na(BIA_stand_structure[15,]))
+BIA_stand_structure[15,idx] <- 0
+idx <- which(is.na(BIA_stand_structure[16,]))
+BIA_stand_structure[16,idx] <- 0
+
+
+##add Year column as in 'last census year', so modellers have easier access to the year they should compare output against.
+# I use 2012 for this, as, while it varies, it is the average census year of the last census.
+BIA_stand_structure$Year <- 2012
+BIA_stand_structure$site <- "BIA"
+
+
+#######PFT selection for simulation
+BIA_biomass_groups <- BIA_biomass %>% dplyr::select(census.date,tmt.plot.id,species.cor) %>% count(species.cor) %>%  mutate(freq = n / sum(n)*100) 
+
+#all species
+BIA_biomass_groups[order(BIA_biomass_groups$n),]
+
+#more frequent species (>10%)
+BIA_biomass_groups[which(BIA_biomass_groups$freq > 10),]
+
+pfts <- BIA_biomass_groups[which(BIA_biomass_groups$freq > 10),]
+         
+pfts[order(pfts$freq),]
+
+#Most common in most of the plots:
+#  Picea abies, Tilia cordata, Carpinus betulus 
+#Species are a mix of intermediate shade tolerante, shade tolerant, shade-intolerant broadleaf summergreens and Picea abies (shade tolerant)
+# decision to simulate:
+#Shade tolerand broadleaf summergreen
+#Shade intolerant broadleaf summergreen
+#Shade tolerant needleleaf 
+
+```
+
+### Barro Collorado Island
+ With only one site, but wanting to have some sort of understanding of the variability that provides plausible ranges for models to fall into, Daniel tried different spatial extents for bootstrapping. 
+ Decision: use bootstrapping area of 6.25 ha. and 95% CI.
+
+```{r BCI_obs}
+
+#email from Daniel Zuleta:
+#"Do not consider the first census (year = 1982) and all dependencies (e.g., fluxes between first (1982) and second (1985) census) of the BCI data. The first census is usually #removed from biomass analyses because diameter of buttressed trees with irregular trunks were measured around buttresses at breast height, thus creating a strong bias in the #biomass estimations." 12/04/2023
+
+
+####################################
+# prepare paths and auxilary variables
+model_name = "OBSERVATIONS"
+
+ba <- "q6.25ha/"
+
+source.in <- defineSource(id = "BCI",
+                          dir = paste0(BCI.path,ba) ,
+                          format = DBEN,
+                          name = "Observations at BCI",
+                          forcing.data = "Obs")
+       
+source.in
+####################################
+#prepare df for stand structure:
+#define dbh classes:
+dbh_classes_BCI = c("[1-5)", "[5-10)", "[10-15)","[15-20)","[20-30)","[30-40)","[40-50)","[50-60)","[60-70)","[70-80)",
+                "[80-90)","[90-100)","[100-150)","[150-200)","[200-350)")
+dbh_classes_BCI <- ordered(dbh_classes_BCI,levels=dbh_classes_BCI)
+
+
+BCI_stand_structure <- data.frame(dbh_classes_num = c(5,10,15,20,30,40,50,60,70,80,90,100,150,200,250),dbh_classes= dbh_classes_BCI)
+
+
+#For stand structure nstem by dbh:
+####################################
+var ="nstem_size"
+run = "p1" # -"equivalent
+# DBH-measurements start at sizeclass <5, so all trees with DBH 5 and larger.
+
+    var.to.plot <- getField_DBEN(source.in,
+                             quant = get_quantity(var),
+                             file.name = "nstem_size.total.csv",
+                             model_name ="Obs")
+    BCI_stand_structure$nstem_size_ha.1 <-    t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+    
+    var.to.plot <- getField_DBEN(source.in,
+                             quant = get_quantity(var),
+                             file.name = "nstem_size.hi.csv",
+                             model_name ="Obs")
+    BCI_stand_structure$nstem_size_upper_ha.1 <-    t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+    
+    var.to.plot <- getField_DBEN(source.in,
+                             quant = get_quantity(var),
+                             file.name = "nstem_size.lo.csv",
+                             model_name ="Obs")
+    BCI_stand_structure$nstem_size_lower_ha.1 <-    t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+   
+    
+plot(BCI_stand_structure$dbh_classes_num,BCI_stand_structure$nstem_size_ha.1,xlab="",ylab="",ylim=c(0,360),main=ba)
+arrows(BCI_stand_structure$dbh_classes_num, BCI_stand_structure$nstem_size_lower_ha.1,
+       BCI_stand_structure$dbh_classes_num, BCI_stand_structure$nstem_size_upper_ha.1, length=0.00, angle=90, code=3,col= tropics_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems (stems/ha)",line=2)
+
+
+#For stand structure AGB by dbh:
+####################################
+var ="cwood_size"
+run = "p0" # -"equivalent
+
+    var.to.plot <- getField_DBEN(source.in,
+                                 quant = get_quantity(var),
+                                 file.name = "cwood_size.total.csv",
+                                 model_name ="Obs")
+    BCI_stand_structure$AGB_size_kgCm.2 <- t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+    
+    var.to.plot <- getField_DBEN(source.in,
+                                 quant = get_quantity(var),
+                                 file.name = "cwood_size.hi.csv",
+                                 model_name ="Obs")
+    BCI_stand_structure$AGB_size_upper_kgCm.2 <- t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+    
+    var.to.plot <- getField_DBEN(source.in,
+                                 quant = get_quantity(var),
+                                 file.name = "cwood_size.lo.csv",
+                                 model_name ="Obs")
+    BCI_stand_structure$AGB_size_lower_kgCm.2 <- t(var.to.plot@data[var.to.plot@data$Year==2015,4:18])
+   
+    
+plot(BCI_stand_structure$dbh_classes_num,BCI_stand_structure$AGB_size_kgCm.2,xlab="",ylab="",ylim=c(0,8),main=ba)
+arrows(BCI_stand_structure$dbh_classes_num, BCI_stand_structure$AGB_size_lower_kgCm.2, BCI_stand_structure$dbh_classes_num, BCI_stand_structure$AGB_size_upper_kgCm.2, length=0.00, angle=90, code=3,col= tropics_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGB (KgC m-2)",line=2)
+
+
+####################################
+#Site dynamics
+
+BCI_dyn <- data.frame(Year = var.to.plot@data$Year,site = "BCI")
+BCI_dyn$AGB_kgCm2    <- read.csv(paste0(BCI.path,ba,"cwood.total.csv"))$t.cwood.total
+BCI_dyn$AGB_upper_kgCm2 <- read.csv(paste0(BCI.path,ba,"cwood.hi.csv"))$t.cwood.hi
+BCI_dyn$AGB_lower_kgCm2 <- read.csv(paste0(BCI.path,ba,"cwood.lo.csv"))$t.cwood.lo
+
+#plot(BCI_dyn$Year,BCI_dyn$AGB_kgCm2,ylim=c(0,60),ylab="AGB kgC m2",xlab="Year",main= ba)
+#arrows(BCI_dyn$Year, BCI_dyn$AGB_lower_kgCm2,BCI_dyn$Year, BCI_dyn$AGB_upper_kgCm2, length=0.00, angle=90, code=3,col= tropics_col)
+
+BCI_dyn<- BCI_dyn[which(BCI_dyn$Year!=1982),]# as per request from Daniel (see above in this chunk- remove 1982 sample)
+####################################
+#merge AGcwood this with BIA stand_dynamics dataset:
+stand_dynamics <- plyr::rbind.fill(stand_dynamics,BCI_dyn)
+
+#BCI has no records of seedlings in this dataset. They exist though. Mark this here as NA
+# first, add last census year explicitly, so modellers know what year to compare stand structure against:
+BCI_stand_structure$Year <- 2015
+BCI_stand_structure$site <- "BCI"
+
+newrow <- data.frame(BIA_stand_structure[1,1:2],BCI_stand_structure[1,3:10])
+newrow[1,3:8] <- NA
+BCI_stand_structure = rbind(newrow,BCI_stand_structure)
+
+```
+
+
+### Finland 
+```{r FI_obs}
+
+FI_in <- read.csv(paste0(FI.path,"semi-natural-fertile-spruce-sites-sizedistr_06022023.csv")) 
+#"For semi-natural sites I calculated biomasses with Repola et al. functions below – for total abv biomass. " Mikko
+                  #_06022023 update deals with using correct dbh classes and removal of foliage
+
+FI_in$dbh_class <- as.factor(FI_in$dbh_class)
+
+####################################
+####Get equilibrium biomass:
+
+# unitconversion
+# nstem already correct,
+# aboveground biomass currently in kg/ha
+FI_in$Babv = FI_in$Babv / 10000 /2 # /ha to m2 /biomass to c only
+
+### Get total equilibrium biomass, use all sites, assuming they are in equilibrium.
+FI_biomass_tmp <- FI_in %>% group_by(year,site)  %>% summarise(TOTAL_AGBC = sum(Babv))  %>% summarise( AGB_kgCm2 = median(TOTAL_AGBC),
+                                           AGB_lower_kgCm2  = quantile(TOTAL_AGBC,c(.10),na.rm=TRUE),
+                                           AGB_upper_kgCm2  = quantile(TOTAL_AGBC,c(.90),na.rm=TRUE),
+                                           n=n()
+                                           )
+
+FI_biomass_tmp <- FI_biomass_tmp[which(FI_biomass_tmp$n>=8),] # reduces the number of years substantially. but can we trust the ranges otherwise?
+FI_biomass_mergeprep <- FI_biomass_tmp[,c(2:4)]
+FI_biomass_mergeprep$Year <- FI_biomass_tmp$year
+FI_biomass_mergeprep$site <- "FI"
+
+#merge FI with other stand_dynamics datasets:
+stand_dynamics <- plyr::rbind.fill(stand_dynamics,FI_biomass_mergeprep)
+
+####################################
+####Get stand structure:
+#some observations have multiple years' worth of data. I'm assuming that the later years always contain 'older' forest. Therefore, only using the older forest here, to better reflect old growth forest stand structure.
+FI_in_og <- FI_in %>% group_by(site) %>% slice_max(year)
+
+
+# stand type of these sites is = unmanaged or low-intensity managed
+#no poin tin mimicking BCI- different data alltogether. use 90th and 10th percentile as for regrowth.
+FI_done <- FI_in_og %>% group_by(dbh_class) %>% summarise(nstem_size_ha.1 = median(N),
+                                                       nstem_size_upper_ha.1 = quantile(N,c(.90),na.rm=TRUE), 
+                                                       nstem_size_lower_ha.1 = quantile(N,c(.10),na.rm=TRUE), 
+                                                       AGB_size_kgCm.2 = median(Babv),
+                                                       AGB_size_upper_kgCm.2 = quantile(Babv, c(.90),na.rm=TRUE),
+                                                       AGB_size_lower_kgCm.2 = quantile(Babv, c(.10) ,na.rm=TRUE), 
+                                                       n=n()
+                                                       )
+
+# additions to ease merge later:
+FI_done <- data.frame( dbh_classes_num= c(15,20,30,40,50,10,60,70,80),FI_done)
+FI_done <- FI_done[order(FI_done$dbh_classes_num),]
+
+#disallow entries with less than 5 values:
+FI_done <- FI_done[which(FI_done$n >5),]
+FI_done$n <- NULL
+
+# start by having rows with dbh.classes not present in dataset, fill with NA
+FI_done_tmp <- BIA_stand_structure[1:2,1:8]
+names(FI_done_tmp) <- names(FI_done)
+FI_final <- rbind(FI_done_tmp,FI_done)
+FI_final$Year <- 2007 # A year-value is needed (but just for plotting of relative years). These plots contain more sampling years. I am using the last year, assuming not much has changed between the years.
+FI_final$site = "FI"
+#inherited from old code, so change here quickly
+names(FI_final)[2] <- "dbh_classes"
+
+
+FI_stand_structure <- FI_final
+```
+
+# Visualisation of the above post-processed data.
+
+### Biome-level regrowth curves and equilibrium dynamics
+
+```{r Vis_and_write_out_regrowth_eq_dynamics}
+#visualise the data and write them out for the modelling groups
+#the plots created here were presented to the modelling groups alongside the modelling protocol and the benchmark datasets.
+
+par(mfrow=c(3,2))
+cex.yax = 0.8
+###REGROWTH and AGB dynamics:
+### Tropics
+site="BCI"
+n_levels <- length(regrowth[which(regrowth$Biome == "Tropics"),]$new_bin)
+plot(regrowth[which(regrowth$Biome == "Tropics"),]$new_bin,
+     regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_med,
+     ylim=c(0,35),col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_10, 1:n_levels, regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_90, length=0.00, angle=90, code=3,col= tropics_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+#mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Tropics",adj=0.95,side=3,line=-1.3)
+
+
+plot(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+     stand_dynamics[which(stand_dynamics$site==site),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1980,2020),ylab='',xlab='',type="p",pch = 20,
+     xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_lower_kgCm2, 
+       stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_upper_kgCm2, 
+       length=0.00, angle=90, code = 3,col = tropics_col)
+abline(h=10,col="light grey")
+#axis(side=1,at=1:9, labels=seq(1935,2015,10))
+#mtext(side=1,line=2,"Years")
+#mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+###Temperate
+site="BIA"
+n_levels <- length(regrowth[which(regrowth$Biome == "Temperate"),]$new_bin)
+plot(regrowth[which(regrowth$Biome == "Temperate"),]$new_bin,
+     regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_med,ylim=c(0,35),
+     col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_10, 
+       1:n_levels, regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_90, 
+       length=0.00, angle=90, code=3,col=temperate_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+#mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Temperate",adj=0.95,side=3,line=-1.3)
+
+
+plot(stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year,
+     stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1930,2020),ylab='',xlab='',type="p",
+     pch = 20,xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year,
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_lower_kgCm2,
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year, 
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_upper_kgCm2,
+       length=0.00, angle=90, code = 3,col = temperate_col)
+abline(h=10,col="light grey")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+
+axis(side=1,at=1:9, labels=seq(1935,2015,10))
+#mtext(side=2,"AGcwood KgCm2",line=1)
+
+### Boreal
+Biome= "Boreal"
+site="FI"
+
+regrowth[which(regrowth$Biome == "Boreal"),]$new_bin[1] <- regrowth[which(regrowth$Biome == "Temperate"),]$new_bin[1]
+#change from Inf to 220, otherwise no plot
+regrowth[which(regrowth$Biome == "Boreal"),]$new_bin[11] <- as.factor("(200,220]")
+
+n_levels <- length(regrowth[which(regrowth$Biome == "Boreal"),]$new_bin)
+plot(regrowth[which(regrowth$Biome == "Boreal"),]$new_bin,
+     regrowth[which(regrowth$Biome == "Boreal"),]$AGcwood_kgCm2_med,
+     ylim=c(0,35),col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == Biome),]$AGcwood_kgCm2_10, 1:n_levels, regrowth[which(regrowth$Biome == Biome),]$AGcwood_kgCm2_90, length=0.00, angle=90, code=3,col= boreal_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Boreal",adj=0.95,side=3,line=-1.3)
+
+plot(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+     stand_dynamics[which(stand_dynamics$site==site),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1990,2020),ylab='',xlab='',type="p",
+     pch = 20,xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_lower_kgCm2,
+       stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_upper_kgCm2,
+       length=0.00, angle=90, code = 3,col = boreal_col)
+abline(h=10,col="light grey")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+axis(side=1,at=1:9, labels=seq(1935,2015,10))
+mtext(side=1,line=2,"Years")
+#mtext(side=2,"AGcwood KgCm2",line=1)
+
+mtext(side=3,"REGROWTH",outer=TRUE,adj=0.1,line =-0.9)
+mtext(side=3,"(EQ.) BIOMASS DYNAMICS",outer=TRUE,adj=0.95,line =-0.9)
+
+
+######################
+#write out for everyone:
+regrowth_out <- data.frame(bin_ranges = regrowth[,1],
+                       bin_num = c(10,30,50,70,10,30,50,70,90,110,130,150,10,30,50,70,90,110,130,150,170,190,210),
+                       regrowth[,2:5],
+                       Biome = regrowth[,"Biome"],
+                       final = 'Y' )
+
+names(regrowth_out)[1] <- "bin_ranges" # quick fix for the fact that the above doesn't seem to work
+
+for(bm in unique(regrowth_out$Biome)){
+  max(regrowth_out[regrowth_out$Biome == bm,]$bin_num)
+}
+
+regrowth_out$source <- c(rep("Poorter et al 2017, http://dx.doi.org/10.5061/dryad.82vr4",4),
+                         rep("Teobaldelli et al 2009,  https://doi.org/10.1016/j.foreco.2008.11.002",8),
+                         rep( "Repo et al 2021, https://doi.org/10.1016/j.foreco.2021.119507",11))
+
+write.csv(regrowth_out,paste0(path_out,'benchmark_regrowth_curves.csv'),row.names = FALSE)
+
+# writeout stand_dynamics
+stand_dynamics$new_bin <- NULL # not needed by modellers
+stand_dynamics$new_bin_num <- NULL # not needed by modellers
+stand_dynamics[which(stand_dynamics$site == "FI"),]$site <- "FIN" # to make compatible with main analysis script site naming
+setorderv(stand_dynamics,cols=c("site","Year"))
+
+stand_dynamics$source <- c(rep( "Brzeziecki et al 2016, https://doi.org/10.1111/jvs.12369",7),
+                           rep("Condit et al 2019, https://doi.org/10.15146/5xcp-0d46",7),
+                           rep("Peltoniemi et al 2011, https://doi.org/10.1016/j.foreco.2010.09.019" ,5))
+write.csv(stand_dynamics,paste0(path_out,'benchmark_eq_dynamics.csv'),row.names = FALSE)
+
+```
+
+```{r Vis_and_write_out_stand_structure}
+#the plots created here were presented to the modelling groups alongside the modelling protocol and the benchmark datasets.
+########################################################################
+par(mfrow=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+# stand structure, nstems and AGB (woody aboveground carbon), now called AGcwood
+
+#bin all together, including FI_final
+stand_structure_final <-rbind(BIA_stand_structure,BCI_stand_structure,FI_stand_structure)
+
+####Tropics:
+site="BCI"
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1, xlab="", ylab="", ylim=c(0,5700) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n(stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6),
+     xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n (kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+###Temperate:
+site="BIA"
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1, xlab="", ylab="", ylim=c(0,500) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n (stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n (kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+mtext(side=3,"STAND STRUCTURE",outer=TRUE,line =1.2)
+mtext(side=3,"NSTEMS_SIZE",outer=TRUE,adj=0.3,line =-0.9)
+mtext(side=3,"AGcwood_SIZE",outer=TRUE,adj=0.93,line =-0.9)
+
+
+
+#Finland
+site="FI"
+
+######################
+# complete entry for FI, with empty DBH-classes:
+FI_add <- stand_structure_final[11:16,] # sizeclass 80 added here, only n=1 have a record, data therefore has to be discarded.
+# set these entries to 0, as they were not observed - so show to models that these dbh-classes would be implausible rather than missing values.
+FI_add[,3:10] <- 0
+FI_add$site <- "FI"
+#merge
+stand_structure_final<- rbind(stand_structure_final,FI_add)
+#write out for everyone:
+stand_structure_final$dbh_classes <- rep(c("<1", "<5", "<10", "<15", "<20", "<30", "<40", "<50", "<60", "<70", "<80", "<90","<100","<150", "<200", ">=200"),3)
+stand_structure_final$final <- c(rep('Y',16),rep('Y',16),rep('Y',16))
+
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1, xlab="", ylab="" , ylim=c(0,500) ,
+      xaxt = 'n', yaxt='n',xlim=c(0,250))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n', xlim=c(0,250))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n (stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6) ,
+      xaxt = 'n', yaxt='n',xlim=c(0,250))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n(kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+############################
+
+stand_structure_final$Year <- NULL # remove, as no direct comparison against a particular year, just the last model output year will be used.
+write.csv(stand_structure_final, file = paste0(path_out,"/benchmark_stand_structure.csv"),row.names = FALSE)
+
+
+```
+
+```{r plots_stand_structure}
+#png(filename=paste0(path_figs,"S4_protocol_stand_structure.png"))
+par(mfrow=c(3,3),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+xmax = 300
+stand_structure <- read.csv(file = paste0(path_out,"benchmark_stand_structure.csv"))
+
+####Tropics:
+site="BCI"
+plot(stand_structure[which(stand_structure$site==site),]$dbh_classes_num,
+     stand_structure[which(stand_structure$site==site),]$nstem_size_ha.1, xlab="", ylab="", ylim=c(0,4700) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure[which(stand_structure$site==site),]$dbh_classes_num,
+     stand_structure[which(stand_structure$site==site),]$nstem_size_lower_ha.1,
+     stand_structure[which(stand_structure$site==site),]$dbh_classes_num,
+     stand_structure[which(stand_structure$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n(stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6),
+     xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= tropics_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n (kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+###Temperate:
+site="BIA"
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1, xlab="", ylab="", ylim=c(0,500) ,
+      xaxt = 'n', yaxt='n', xlim=c(0,xmax))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n')
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n (stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6) ,
+      xaxt = 'n', yaxt='n', xlim=c(0,xmax))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= temperate_col)
+#mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n (kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+mtext(side=3,"STAND STRUCTURE",outer=TRUE,line =1.2)
+mtext(side=3,"NSTEMS_SIZE",outer=TRUE,adj=0.3,line =-0.9)
+mtext(side=3,"AGcwood_SIZE",outer=TRUE,adj=0.93,line =-0.9)
+
+
+
+#Finland
+site="FI"
+xmax=100
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1, xlab="", ylab="" , ylim=c(0,500) ,
+      xaxt = 'n', yaxt='n',xlim=c(0,xmax))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1,
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"nstems \n(stems ha-1)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_ha.1), xlab="", ylab="", ylim=c(-2,10) ,
+      xaxt = 'n', yaxt='n', xlim=c(0,xmax))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_lower_ha.1),
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     log(stand_structure_final[which(stand_structure_final$site==site),]$nstem_size_upper_ha.1),
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"log(nstems \n (stems ha-1))",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+
+
+plot(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_kgCm.2, xlab="", ylab="", ylim=c(0,6) ,
+      xaxt = 'n', yaxt='n',xlim=c(0,xmax))
+arrows(stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_lower_kgCm.2,
+     stand_structure_final[which(stand_structure_final$site==site),]$dbh_classes_num,
+     stand_structure_final[which(stand_structure_final$site==site),]$AGB_size_upper_kgCm.2,
+     length=0.00, angle=90, code=3,col= boreal_col)
+mtext(side=1,"dbh-bin (cm)",line=2)
+mtext(side=2,"AGcwood \n (kgC m-2)",line=1)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+
+#dev.off()
+```
+
+```{r plots_regrowth_and_eq_dynamics}
+#the plots created here were presented to the modelling groups alongside the modelling protocol and the benchmark datasets.
+
+#png(filename=paste0(path_figs,"S3_regrowth_and_eq_dynamics.png"))
+par(mfrow=c(3,2),mar=c(1,3,1,1),oma=c(2,0.5,3,0.1),cex=0.8)
+
+#load(file = paste0(path_out,'benchmark_regrowth_curves.RData'))
+read.csv(paste0(path_out,"benchmark_regrowth_curves.csv"))
+regrowth <- regrowth_out
+stand_dynamics <- read.csv(file = paste0(path_out,"benchmark_eq_dynamics.csv"))
+
+cex.yax = 1
+###REGROWTH and AGB dynamics:
+### Tropics
+site="BCI"
+n_levels <- length(regrowth[which(regrowth$Biome == "Tropics"),]$bin_ranges)
+plot(regrowth[which(regrowth$Biome == "Tropics"),]$bin_ranges,
+     regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_med,
+     ylim=c(0,35),col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_10, 1:n_levels, regrowth[which(regrowth$Biome == "Tropics"),]$AGcwood_kgCm2_90, length=0.00, angle=90, code=3,col= tropics_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+#mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Tropics",adj=0.95,side=3,line=-1.3)
+
+
+plot(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+     stand_dynamics[which(stand_dynamics$site==site),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1980,2020),ylab='',xlab='',type="p",pch = 20,
+     xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_lower_kgCm2, 
+       stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_upper_kgCm2, 
+       length=0.00, angle=90, code = 3,col = tropics_col)
+abline(h=10,col="light grey")
+#axis(side=1,at=1:9, labels=seq(1935,2015,10))
+#mtext(side=1,line=2,"Years")
+#mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+###Temperate
+site="BIA"
+n_levels <- length(regrowth[which(regrowth$Biome == "Temperate"),]$bin_ranges)
+plot(regrowth[which(regrowth$Biome == "Temperate"),]$bin_ranges,
+     regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_med,ylim=c(0,35),
+     col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_10, 
+       1:n_levels, regrowth[which(regrowth$Biome == "Temperate"),]$AGcwood_kgCm2_90, 
+       length=0.00, angle=90, code=3,col=temperate_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+#mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Temperate",adj=0.95,side=3,line=-1.3)
+
+
+plot(stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year,
+     stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1930,2020),ylab='',xlab='',type="p",
+     pch = 20,xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year,
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_lower_kgCm2,
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$Year, 
+       stand_dynamics[which(stand_dynamics$site=="BIA"),]$AGB_upper_kgCm2,
+       length=0.00, angle=90, code = 3,col = temperate_col)
+abline(h=10,col="light grey")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+
+axis(side=1,at=1:9, labels=seq(1935,2015,10))
+#mtext(side=2,"AGcwood KgCm2",line=1)
+
+### Boreal
+Biome= "Boreal"
+site="FIN"
+n_levels <- length(regrowth[which(regrowth$Biome == "Boreal"),]$bin_ranges)
+plot(regrowth[which(regrowth$Biome == "Boreal"),]$bin_ranges,
+     regrowth[which(regrowth$Biome == "Boreal"),]$AGcwood_kgCm2_med,
+     ylim=c(0,35),col="red",xlim=c(0,16),ylab='',xlab='',
+     xaxt = 'n',yaxt= 'n')
+abline(h=10,col="light grey")
+arrows(1:n_levels, regrowth[which(regrowth$Biome == Biome),]$AGcwood_kgCm2_10, 1:n_levels, regrowth[which(regrowth$Biome == Biome),]$AGcwood_kgCm2_90, length=0.00, angle=90, code=3,col= boreal_col)
+#axis(side=1,at=1:12, labels=seq(10,240,20))
+#legend(legend = lgnd, fill = col, "topright",box.lwd = 0,bg = "transparent",cex = 0.8)
+mtext(side=2,"AGcwood KgCm2",line=1,cex=cex.yax)
+mtext(side=1,line=2,"Years after disturbance")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5,at=1:12, labels=seq(10,240,20))
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext("Boreal",adj=0.95,side=3,line=-1.3)
+
+plot(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+     stand_dynamics[which(stand_dynamics$site==site),]$AGB_kgCm2,
+     ylim=c(0,35),xlim=c(1990,2020),ylab='',xlab='',type="p",
+     pch = 20,xaxt = 'n',yaxt= 'n')
+arrows(stand_dynamics[which(stand_dynamics$site==site),]$Year,
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_lower_kgCm2,
+       stand_dynamics[which(stand_dynamics$site==site),]$Year, 
+       stand_dynamics[which(stand_dynamics$site==site),]$AGB_upper_kgCm2,
+       length=0.00, angle=90, code = 3,col = boreal_col)
+abline(h=10,col="light grey")
+axis(1, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 1, lwd = 0, line = -0.8, las = 0.5)
+axis(2, mgp=c(3, .6, 0), tck=-.015, labels=NA)
+axis(side = 2, lwd = 0, line = -0.8, las = 0.5)
+mtext(site,adj=0.95,side=3,line=-1.3)
+
+axis(side=1,at=1:9, labels=seq(1935,2015,10))
+mtext(side=1,line=2,"Years")
+#mtext(side=2,"AGcwood KgCm2",line=1)
+
+mtext(side=3,"REGROWTH",outer=TRUE,adj=0.1,line =-0.9)
+mtext(side=3,"(EQ.) BIOMASS DYNAMICS",outer=TRUE,adj=0.95,line =-0.9)
+
+#dev.off()
+```
+
+
+```{r benchmarks_self-thinning}
+
+#Teobaldelli broadleaves:
+
+#must run chunks "Teobaldelli" and "collect_Temperate_regrowth" to work with the below object:
+
+#already sorted for Broadleaf:
+#fix unit issue: some number of trees reported in thousands, others in decimals:
+#Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<10),]$`trees/ha [Nx10-3]` <- Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<10),]$`trees/ha [Nx10-3]`*1000
+Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<10),]$`trees/ha [Nx10-3]`
+Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<1),]$`А [years]`
+
+# for selecting which numbers need conversion, select conditions that are plausible, e.g. after 30 years, there have to be more than 10 trees standing in a ha? Otherwise not even a forest.
+Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<10 & Teo_full$`А [years]` >30),]
+#after 30 years, there should be some biomass
+
+#filter out the small sizeclasses and young forets, which are likely not yet self-thinning.
+Teo_full <- Teo_full[which(Teo_full$`trees/ha [Nx10-3]`<10 & Teo_full$`А [years]` >10),]
+
+idx <- complete.cases(Teo_full[,c("trees.ha","KgCm2")])
+Broadleaf <- Teo_full[idx,c("trees.ha","KgCm2","note on trees/ha")]
+#check whether the ""* Indirect estimation"" tree numbers do sensible things, otherwise consider as outliers.
+
+plot(log(Broadleaf$`trees.ha`),log(Broadleaf$KgCm2/Broadleaf$`trees.ha`))
+#idx <- which(Broadleaf$`note on trees/ha` == "* Indirect estimation")
+#points(log(Broadleaf$`trees/ha [Nx10-3]`)[idx],log(Broadleaf$KgCm2/Broadleaf$`trees/ha [Nx10-3]`)[idx], col="red")
+#points(log(Broadleaf$`trees.ha`),log(Broadleaf$KgCm2/Broadleaf$`trees.ha`), col="red")
+#tested indirect estimation subset and it looks ok to me. keeping these points.
+
+
+write.csv(Broadleaf,file=paste0(path_out,"Benchmark_Broadleaf_Teo_self_thinning.csv"),row.names=FALSE)
+
+
+#using full conifer dataset:
+
+idx_conif<- which(Teo_full_merge$Botanical.type == 2)
+Teo_full_conif <- Teo_full_merge[idx_conif,]
+
+Teo_full_conif <-Teo_full_conif[which(Teo_full_conif$Compartment..1.leaf.2.stem.branches.3.branches.4.stem.5.roots.6.b_bark.7.s_bark.8.other. == 4),]
+  
+Teo_full_conif <- Teo_full_conif[which(Teo_full_conif$`trees/ha [Nx10-3]`<10 & Teo_full_conif$`А [years]` >10),]
+idx <- complete.cases(Teo_full_conif[,c("trees.ha","KgCm2")])
+
+
+Conif <- Teo_full_conif[idx,c("trees.ha","KgCm2")]
+#check whether the ""* Indirect estimation"" tree numbers do sensible things, otherwise consider as outliers.
+
+points(log(Conif$`trees.ha`),log(Conif$KgCm2/Conif$`trees.ha`), col="green")
+write.csv(Conif,file=paste0(path_out,"Benchmark_Conif_Teo_self_thinning.csv"),row.names=FALSE)
+
+
+###########
+
+```
+
+
+```{r benchmarks_turnover_times}
+
+#Pelttoniemi et al 2011:
+
+FIN <- read.csv(paste0(FI.path,"02_stand-level-dynamics_TMt_FIN.csv")) 
+#`d.mean0` mean diameter across all living stems in census 0
+#`ma` annual stem mortality rates (natural death) Kohyama et al. 2017 MEE
+#`Lann` Annual biomass loss (Mg ha/y) Kohyama et al. 2017 MEE
+#`Pann` Annual biomass productivity (Mg ha/y) Kohyama et al. 2017 MEE
+#`ba0` basal area of living stems at census 0 (m2/ha - corrected for plot design)                 
+#`ba`  basal area of living stems at census 0 (m2/ha - corrected for plot design)       
+#`ba.increment` ??
+#`biomass.survivors` biomass of `survivors` (Mg/ha - corrected for plot design)
+#`biomass.survivors0`  biomass of `survivors0` (Mg/ha - corrected for plot design)
+#`biomass.increment` growth of biomass of survivors in the interval between census 0 and census 1 (per ha corrected for plot design)  
+
+FINTM <- FIN[,c("tmt.plot.id","census.date","ba0"  ,"ma","Lann","Pann","biomass.survivors","n.stems")]
+
+FINTM$n.stems <- floor(FINTM$n.stems)
+#unitconversion
+FINTM$Lann  <-  FINTM$Lann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+FINTM$biomass.survivors  <-  FINTM$biomass.survivors *1000 / 10000 /2 # *megagram to kg , /ha to m2
+FINTM$Pann  <-  FINTM$Pann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+FINTM$turnover <- FINTM$biomass.survivors/FINTM$Lann
+FINTM$mortality_rate <- FINTM$Lann/FINTM$biomass.survivors*100
+FINTM       <- na.omit(FINTM)
+FINTM_out   <- FINTM[,c("tmt.plot.id","census.date","biomass.survivors","Lann","turnover","mortality_rate")]
+
+names(FINTM_out) <- c("site","year","biomass_alive_kgC_m2","mortality_flux_kgC_m2_yr","turnover_time_yr","mortality_rate_perc_yr")
+
+FINTM_out$source <- "Peltoniemi et Mäkipää 2011, 10.1016/j.foreco.2010.09.019"
+#write.csv(FINTM_out,file = paste0(path_out,"benchmark_turnover_times_FIN_tst.csv"),row.names = FALSE)
+
+
+################################################################################
+
+#Brziezki et al :
+
+#BIA.path <- paste0(obs.raw ,"BIA/")
+
+BIA <- read.csv(paste0(BIA.path,"02_stand-level-dynamics_TMt_NHR_BIAonly.csv"))#02_stand-level-dynamics_TMt_Bial.csv"))
+
+
+BIATM <- BIA[,c("tmt.plot.id","census.date","ba0","ma","Lann","Pann","biomass.survivors","n.stems")]
+#BIATM$census.date <- as.Date(paste(floor(BIATM$census.date), 1, 1, sep = "-"))
+BIATM$n.stems <- floor(BIATM$n.stems)
+#unitconversion
+BIATM$Lann  <-  BIATM$Lann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+BIATM$biomass.survivors  <-  BIATM$biomass.survivors *1000 / 10000 /2 # *megagram to kg , /ha to m2
+BIATM$Pann  <-  BIATM$Pann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+BIATM$turnover <- BIATM$biomass.survivors/BIATM$Lann
+BIATM$mortality_rate <- BIATM$Lann/BIATM$biomass.survivors*100
+BIATM       <- na.omit(BIATM)
+BIATM_out   <- BIATM[,c("tmt.plot.id","census.date","biomass.survivors","Lann","turnover","mortality_rate")]
+
+names(BIATM_out) <- c("site","year","biomass_alive_kgC_m2","mortality_flux_kgC_m2_yr","turnover_time_yr","mortality_rate_perc_yr")
+BIATM_out$source <- "Brzeziecki et al 2016, post-processed in this study, 10.1111/jvs.12369"
+#write.csv(BIATM_out,file = paste0(path_out,"benchmark_turnover_times_BIA.csv"),row.names = FALSE)
+
+
+################################################################################
+
+
+
+
+###BCI Forest Geo
+################################################################################
+
+site="BCI"
+source.in <- defineSource(id = "BCI",
+                          dir = paste0(BCI.path,ba) ,
+                          format = DBEN,
+                          name = "Observations at BCI",
+                          forcing.data = "Obs")
+
+
+#cmort
+################################################################################
+var = "cmort"
+
+#var.to.plot <- read.csv(paste0(BCI.path,"cmort_size.csv"))
+cmort_size <- getField_DBEN(source.in,
+                             quant = get_quantity(var),
+                             file.name = "cmort_size.total.csv",
+                             model_name ="Obs")
+#omit Year 1982 and 85, Daniel Zuleta, pers.comm
+cmort_size@data <- cmort_size@data[-c(1),]
+
+#save data
+#cmort_size<- var.to.plot@data[,c("Year","Lat","Lon","Total")]
+#cmort_size$Year  <- as.Date(paste(cmort_size$Year, 1, 1, sep = "-"))
+#save(OBS_BCI_cmort , file = paste0(out.dir,"OBS_BCI_cmort.RData"))
+###
+
+head(cmort_size@data)
+
+#convert to -yr:
+end <- dim(cmort_size@data)[2]
+cmort_size@data[,4:end] <- cmort_size@data[,4:end] * seconds_to_year
+cmort_size@quant@units <- "kgC m-2 yr-1"
+
+#create total
+cmort_size@data$Total <- rowSums(cmort_size@data[,4:18])
+
+################################################################################
+
+
+
+#cwood
+################################################################################
+var ="cwood_size"
+run = "p0" # -"equivalent
+
+cwood_size <- getField_DBEN(source.in,
+                             quant = get_quantity(var),
+                             file.name = "cwood_size.total.csv",
+                             model_name ="Obs")
+
+#omit Year 1982 and 85, Daniel Zuleta, pers.comm
+cwood_size@data <- cwood_size@data[-c(1:2),]
+cwood_size@data$Total <- rowSums(cwood_size@data[,4:18])
+    
+#sanity-check:
+cwood_size@data$Year ==cmort_size@data$Year
+
+#combine cmort and cwood for turnover benchmark:
+BCI_turnover <- data.frame(site=rep("BCI",dim(cwood_size@data)[1]))
+BCI_turnover$year <- cwood_size@data$Year
+BCI_turnover$biomass_alive_kgC_m2 <- cwood_size@data$Total
+BCI_turnover$mortality_flux_kgC_m2_yr <- cmort_size@data$Total
+BCI_turnover$turnover_time_yr <- cwood_size@data$Total/cmort_size@data$Total
+BCI_turnover$mortality_rate_perc_yr <- cmort_size@data$Total/cwood_size@data$Total*100
+BCI_turnover$source <- "ForestGeo, processed in this study"
+
+#write.csv(BCI_turnover,file = paste0(path_out,"benchmark_turnover_times_BCI.csv"),row.names = FALSE)
+
+
+# combine all files: 
+write.csv(rbind(BCI_turnover,BIATM_out,FINTM_out),file = paste0(path_out,"benchmark_turnover_times.csv"),row.names = FALSE)
+```
+
+```{r benchmark_growth_fluxes}
+
+#Finland
+################################################################################
+Fi.path <- paste0(obs.raw ,"FIN/")
+#[!!!] need WBgrowth data from Mikko.
+
+Fi <- read.csv(paste0(Fi.path,"02_stand-level-dynamics_TMt_FIN.csv"),head=TRUE)
+
+#unitconversion:
+Fi$Pann  <-  Fi$Pann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+
+#collect relevant info for FIN WBgrowth:
+WBgrowth_FIN <- data.frame(Year = Fi$census.date)# data.frame(Year = Fi$year)#
+WBgrowth_FIN$WBgrowth_kgC_m2_yr <- Fi$Pann #Fi$avg_annual_increment#Fi_clean$Pann 
+WBgrowth_FIN$site               <- "FIN"
+WBgrowth_FIN$source             <- "Peltoniemi et Mäkipää 2011, 10.1016/j.foreco.2010.09.019"
+################################################################################
+
+
+#BIA -  Brzeziecki et al 2016
+################################################################################
+BIA.path <- paste0(obs.raw ,"BIA/")
+
+BIA <- read.csv(paste0(BIA.path,"02_stand-level-dynamics_TMt_NHR_BIAonly.csv"),head=TRUE)
+#unitconversion:
+BIA$Pann  <-  BIA$Pann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+
+WBgrowth_BIA <- data.frame(Year = BIA$census.date)
+WBgrowth_BIA$WBgrowth_kgC_m2_yr <-  BIA$Pann 
+WBgrowth_BIA$site               <- "BIA"
+WBgrowth_BIA$source             <- "Brzeziecki et al 2016, post-processed in this study, 10.1111/jvs.12369"
+################################################################################
+
+
+
+
+#BCI- Original source: Forest Geo
+################################################################################
+BCI.path <- paste0(obs.raw ,"BCI/")
+
+BCI <- read.csv(paste0(BCI.path,"02_stand-level-dynamics_TMt_FGE_BCIonly.csv"),head=TRUE)
+#unitconversion:
+BCI$Pann  <-  BCI$Pann *1000 / 10000 /2 # *megagram to kg , /ha t om2
+WBgrowth_BCI <- data.frame(Year = BCI$census.date)
+WBgrowth_BCI$WBgrowth_kgC_m2_yr <-  BCI$Pann 
+WBgrowth_BCI$site               <- "BCI"
+WBgrowth_BCI$source              <- "ForestGeo, post-processed in this study"
+
+WBgrowth_BCI <- WBgrowth_BCI[-c(1:2),]
+################################################################################
+
+
+WBgrowth_out <- rbind(WBgrowth_BCI,WBgrowth_BIA,WBgrowth_FIN)
+#omit na rows:
+WBgrowth_out <- na.omit(WBgrowth_out)
+
+write.csv(WBgrowth_out,file = paste0(path_out,"benchmark_WBgrowth.csv"),row.names = FALSE)
+
+```
+
+```{r obs_regrowth_dist}
+
+png(paste0(path_figs,"FigS2_Data_origin_biome_map.png"), width = 2000, height = 1000, res = 300)  # Adjust width, height, and resolution as needed
+
+# Prepare site data
+df <- data.frame(
+  Lat = c(9.25, 52.75, 62.25), 
+  Lon = c(-79.75, 23.75, 23.25), 
+  site = c("BCI", "BIA", "FIN"), 
+  Color = c("brown", "light green", "dark green")
+)
+                
+# Adjust plot layout and margins
+par(oma = c(0, 0, 0, 0), mar = c(0, 0, 0, 0))  # No outer or inner margins
+
+#  plot 
+library(rworldmap)
+map('world', xlim = c(-130, 170), ylim = c(-30, 90), asp = 1, 
+    fill = TRUE, col = "light gray", interior = FALSE, border = NA)
+
+FIN <-map('world', regions = "Finland", fill = TRUE, col = "darkgreen", 
+    border = "black", xlim = c(20, 32), ylim = c(59, 70), asp = 1, plot = FALSE)
+
+#No boreal data from FIN above >65*, ( we use "southern and central finland") so filter out:
+FIN$x[which(FIN$y >65)] <- NA
+FIN$y[which(FIN$y >65)] <- NA
+
+# Finland highlighted in Boreal color
+map(FIN, col="dark green", fill=TRUE, add=TRUE)
+
+latlons_samples$Color <- NA
+latlons_samples[which(latlons_samples$Biome =="Tropics"),]$Color <- "brown"
+latlons_samples[which(latlons_samples$Biome =="Temperate"),]$Color <- "light green"
+#latlons_samples[which(latlons_samples$Biome =="Boreal"),]$Color <- "dark green"
+ 
+# Points from latlons_samples and df
+points(latlons_samples$Lon, latlons_samples$Lat, pch = 16, col = latlons_samples$Color)
+
+points(latlons_samples$Lon, latlons_samples$Lat, col = 1)
+points(df$Lon, df$Lat, col = df$Color, pch = 16, cex = 1.4)
+points(df$Lon, df$Lat, col = "red", cex = 1.4)
+
+# Add legend
+legend("bottomright", legend = c("Tropics", "Temperate", "Boreal", "Sites"),
+       col = c("brown", "light green", "dark green", "red"), pch = c(19, 19, 19, 1), 
+       pt.cex = c(1.5, 1.5, 1.5, 1.5), title = "Data origin - Biomes and Sites", 
+       cex = 0.8, ncol = 2)
+
+# Close the PNG device to save the plot
+dev.off()
+```
+
